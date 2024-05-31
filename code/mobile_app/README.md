@@ -10,7 +10,7 @@ Flutter app for Euphonia AI Reviewer.
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/alvarovegahd/Euphonia-AI-Reviewer
+git clone https://github.com/TropicodeLabs/Euphonia-AI-Reviewer.git
 ```
 
 2. Navigate to the `mobile_app` directory:
