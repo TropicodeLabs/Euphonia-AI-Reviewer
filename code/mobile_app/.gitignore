@@ -84,3 +84,5 @@ analysis_options.yaml
 pubspec.lock
 package.json
 package-lock.json
+
+lib/firebase_options.dart
