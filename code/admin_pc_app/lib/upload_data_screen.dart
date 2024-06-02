@@ -63,7 +63,7 @@ class _UploadDataScreenState extends State<UploadDataScreen> {
               children: [
                 Text(
                   'Upload Project Data',
-                  style: Theme.of(context).textTheme.headline5,
+                  style: Theme.of(context).textTheme.headlineMedium,
                 ),
                 SizedBox(height: 20),
                 Text(

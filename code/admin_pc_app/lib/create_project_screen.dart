@@ -135,7 +135,7 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('Project Information',
-            style: Theme.of(context).textTheme.headline6),
+            style: Theme.of(context).textTheme.headlineSmall),
         SizedBox(height: 8),
         _buildTextField(_titleController, 'Title', Icons.title),
         SizedBox(height: 16),
@@ -149,7 +149,8 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Admission Policy', style: Theme.of(context).textTheme.subtitle1),
+        Text('Admission Policy',
+            style: Theme.of(context).textTheme.titleMedium),
         SizedBox(height: 8), // Add some spacing
         Text(
           'By default, all projects are set to private to protect your data. However, if you choose to make your project public, it could significantly enhance your project\'s visibility and potentially attract more contributions and data from the community.',
@@ -208,7 +209,7 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Project cover', style: Theme.of(context).textTheme.headline6),
+        Text('Project cover', style: Theme.of(context).textTheme.headlineSmall),
         SizedBox(height: 8),
         Text(
           'Please select an image with a resolution of 1280x720 pixels to display as the project cover.',
@@ -269,7 +270,7 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Species Names', style: Theme.of(context).textTheme.headline6),
+        Text('Species Names', style: Theme.of(context).textTheme.headlineSmall),
         SizedBox(height: 8),
         Text(
             'Import a CSV file with these exact column names: "common name" and "species code". The CSV file should contain at least two rows.'),
@@ -341,8 +342,8 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
           onPressed: pickAndParseCsv,
           child: Text('Import CSV'),
           style: ElevatedButton.styleFrom(
-            primary: Theme.of(context).primaryColor,
-            onPrimary: Colors.white,
+            backgroundColor: Theme.of(context).colorScheme.background,
+            foregroundColor: Colors.white,
             padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
           ),
         ),
@@ -390,8 +391,8 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
                 )
               : Text('Create Project'),
           style: ElevatedButton.styleFrom(
-            primary: Theme.of(context).colorScheme.secondary,
-            onPrimary: Colors.white,
+            backgroundColor: Theme.of(context).colorScheme.secondary,
+            foregroundColor: Colors.white,
             padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
           ),
         ),
