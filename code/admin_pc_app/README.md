@@ -63,7 +63,7 @@ flutterfire configure
 
 #### a. Update the Podfile:
 
-Update the `Podfile` in the `macos` directory to set the `MACOSX_DEPLOYMENT_TARGET` to `10.15` (Catalina) or higher. This is required to build the macOS app. Open the `Podfile` in the `macos` directory and add the following code at the end of the file:
+Update the `Podfile` in the `macos` directory to set the `MACOSX_DEPLOYMENT_TARGET` to `10.15` or higher. This is required to build the macOS app. Open the `Podfile` in the `macos` directory and add the following code at the end of the file:
 
 ```ruby
 post_install do |installer|
@@ -82,44 +82,29 @@ Also, make sure the first line of the `Podfile` is the following:
 platform :osx, '10.15'
 ```
 
-Open the project in XCode and make sure the deployment target is set to 10.15 or higher in the project settings. For this, you should open the `macos/Runner.xcworkspace` file in Xcode and select the `Runner` project in the left sidebar. Then, select the `Runner` target and go to the `Build Settings` tab. Search for `macOS Deployment Target` and set it to `10.15` or higher. Do the same with the `RunnerTests` target, and the Project -> Runner configuration. You may also set the Minimum Deployments Target to `10.15` or higher in the `General` tab.
+⚠️ Open the project in XCode and make sure the deployment target is set to 10.15 or higher in the project settings. For this, you should open the `macos/Runner.xcworkspace` file in Xcode and select the `Runner` project in the left sidebar. Then, select the `Runner` target and go to the `Build Settings` tab. Search for `macOS Deployment Target` and set it to `10.15` or higher. Do the same with the `RunnerTests` target, and the Project -> Runner configuration. You may also set the Minimum Deployments Target to `10.15` or higher in the `General` tab.
+
+⚠️ Also, enable Outgoing Connections (Network) in the App Sandbox settings in the `macos/Runner/Signing & Capabilities` tab in Xcode. This is required for the app to communicate with the Firebase services.
 
 Now do the following:
+
 ``` bash
 flutter pub get
 cd macos
 pod install --repo-update 
 ```
 
-#### b. Prepare your system for building the macOS app:
-
-Please follow the instructions in the [official documentation](https://docs.flutter.dev/deployment/macos) to prepare your system for building the macOS app. 
-
 ### 7. Run the app:
 
 You can run the app by running the following command:
 
 ```bash
-cd Euophonia-AI-Reviewer/code/admin_pc_app
-bash run_with_config.sh
+flutter run -d macos
 ```
 
-You may also run the app from Xcode by opening the `macos/Runner.xcworkspace` file in Xcode and running the app from there. This will give you more control over the app's configuration and settings. For example, you can change the app's icon, name, and other settings from Xcode. There might be some additional setup required to run the app from Xcode, such as setting up code signing and provisioning profiles. Refer to the [official documentation](https://flutter.dev/desktop#running-your-app) for more information.
+### 8. Build the app for release:
 
-Notes:
-- The app may take some time to build and run for the first time.
-- You may have to run `pod repo update` to update the CocoaPods repository before running the app.
-pod install --repo-update
-
-
-
-### 7. Build the app:
-
-You can build the app by running the following command:
-
-```bash
-flutter build macos
-```
+Follow the steps in the [official documentation](https://docs.flutter.dev/deployment/macos) to build the app for release.
 
 # Notes on cybersecurity and privacy:
 - We are not responsible for any data breaches or other security incidents that may occur as a result of using this software.
