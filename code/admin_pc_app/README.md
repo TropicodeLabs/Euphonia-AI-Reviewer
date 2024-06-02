@@ -63,6 +63,13 @@ flutterfire configure
 
 #### a. Update the Podfile:
 
+For the system to create the Podfile, you need to run the following command:
+
+```bash
+cd macos
+pod init
+```
+
 Update the `Podfile` in the `macos` directory to set the `MACOSX_DEPLOYMENT_TARGET` to `10.15` (Catalina) or higher. This is required to build the macOS app. Open the `Podfile` in the `macos` directory and add the following code at the end of the file:
 
 ```ruby
