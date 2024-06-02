@@ -63,19 +63,12 @@ flutterfire configure
 
 #### a. Update the Podfile:
 
-For the system to create the Podfile, you need to run the following command:
-
-```bash
-cd macos
-pod init
-```
-
 Update the `Podfile` in the `macos` directory to set the `MACOSX_DEPLOYMENT_TARGET` to `10.15` (Catalina) or higher. This is required to build the macOS app. Open the `Podfile` in the `macos` directory and add the following code at the end of the file:
 
 ```ruby
 post_install do |installer|
   installer.pods_project.targets.each do |target|
-    flutter_additional_ios_build_settings(target)
+    flutter_additional_macos_build_settings(target)
     target.build_configurations.each do |config|
       config.build_settings['MACOSX_DEPLOYMENT_TARGET'] = '10.15'
     end
@@ -95,21 +88,12 @@ Now do the following:
 ``` bash
 flutter pub get
 cd macos
-pod install --repo-update
+pod install --repo-update 
 ```
 
 #### b. Prepare your system for building the macOS app:
 
 Please follow the instructions in the [official documentation](https://docs.flutter.dev/deployment/macos) to prepare your system for building the macOS app. 
-
-#### c. Update the CocoaPods repository:
-
-If you encounter any issues with the CocoaPods installation, you can try updating the CocoaPods repository by running the following command:
-
-``` bash
-cd macos
-pod install --repo-update
-```
 
 ### 7. Run the app:
 
