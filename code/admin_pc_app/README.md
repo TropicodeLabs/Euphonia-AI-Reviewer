@@ -61,10 +61,9 @@ flutterfire configure
 
 ### 6. Prepare to build the app:
 
-#### a. Add the required permissions:
-Set the minimum macOS version in the `macos/Flutter/ephemeral/Flutter-Generated.xcconfig` file. This is the minimum macOS version that the app will support. You can set it to the latest version of macOS that you want to support. For example, if you want to support macOS 10.15 and later, you can set it to `10.15`.
+#### a. Update the Podfile:
 
-Add the followin to the end of your Podfile:
+Update the `Podfile` in the `macos` directory to set the `MACOSX_DEPLOYMENT_TARGET` to `10.15` (Catalina) or higher. This is required to build the macOS app. Open the `Podfile` in the `macos` directory and add the following code at the end of the file:
 
 ```ruby
 post_install do |installer|
@@ -77,11 +76,19 @@ post_install do |installer|
 end
 ```
 
+Also, make sure the first line of the `Podfile` is the following:
+
+```ruby
+platform :osx, '10.15'
+```
+
+Open the project in XCode and make sure the deployment target is set to 10.15 or higher in the project settings. For this, you should open the `macos/Runner.xcworkspace` file in Xcode and select the `Runner` project in the left sidebar. Then, select the `Runner` target and go to the `Build Settings` tab. Search for `macOS Deployment Target` and set it to `10.15` or higher. Do the same with the `RunnerTests` target, and the Project -> Runner configuration. You may also set the Minimum Deployments Target to `10.15` or higher in the `General` tab.
+
 Now do the following:
 ``` bash
 flutter pub get
 cd macos
-pod install
+pod install --repo-update
 ```
 
 #### b. Prepare your system for building the macOS app:
