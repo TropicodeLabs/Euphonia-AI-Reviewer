@@ -144,3 +144,6 @@ app.*.symbols
 mobile_app/android/app/google-services.json
 mobile_app/ios/Runner/GoogleService-Info.plist
 mobile_app/lib/firebase_options.dart
+
+# annoying default flutter test file
+code/admin_pc_app/test/widget_test.dart

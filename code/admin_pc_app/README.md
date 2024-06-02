@@ -1,6 +1,10 @@
 # Euphonia AI-Reviewer Admin PC App
 
-Manage your Euphonia-AI-Reviewer projects
+Manage your Euphonia-AI-Reviewer projects.
+
+⚠️ **IMPORTANT**: This app is only available for macOS at the moment. 💻
+
+We are planning to release Windows and Web versions soon. Or even better, you can help us by contributing to the project. 🚀
 
 # Getting Started
 
@@ -21,14 +25,12 @@ cd Euphonia-AI-Reviewer/admin_pc_app
 ### 3. Install dependencies:
 
 ```bash
-flutter create .
-flutter pub get
+flutter create . --platforms=macos
 ```
 
-These commands will create a new Flutter project in the current directory and install the required dependencies. Warning: some of the files created might have default values that you may want to change. For instance, it uses a default package name, which you may want to change to match your project's package name. Example: `com.example.myapp` may be the default package name, but you may want to change it to `com.mycompany.myapp`, to match your project's package name, which is important for firebase configuration. We will do this in the next steps.
+These commands will create a new Flutter project in the current directory and install the required dependencies. ⚠️ IMPORTANT: Some of the files created might have default values that you may want to change. For instance, the project uses a default bundle identifier, which you may want to change to match your project's bundle identifier. For example, com.example.myapp may be the default bundle identifier, but you may want to change it to com.mycompany.myapp to match your project's bundle identifier, which is important for Firebase configuration. We will do this in the next steps.
 
 ### 4. Configure the project:
-You should make sure that the project is configured correctly. This includes setting up the project's package name, the Android, macOS, and iOS configurations, and the Firebase configuration.
 
 #### a. Change the package name:
 You can change the bundle identifier for this macOS app by opening the `macos/Runner.xcworkspace` file in Xcode, selecting the `Runner` project in the left sidebar, and changing the bundle identifier in the `Signing & Capabilities` tab.
