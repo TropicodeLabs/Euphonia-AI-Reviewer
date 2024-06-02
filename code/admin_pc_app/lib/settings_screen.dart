@@ -39,11 +39,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             Text(
               'Preferences',
-              style: Theme.of(context).textTheme.headline6,
+              style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 20),
             // Text: 'Display names as',
-            Text('Display names', style: Theme.of(context).textTheme.subtitle1),
+            Text('Display names',
+                style: Theme.of(context).textTheme.titleMedium),
             // SizedBox(height: 20),
             DropdownButton<String>(
               isExpanded: true,
