@@ -2,17 +2,24 @@
 
 # Define a list of script paths
 script_paths=(
-    "main.dart"
     "app.dart"
     "auth_gate.dart"
-    "list_projects_screen.dart"
-    "data_dashboard_screen.dart"
     "common_drawer.dart"
+    "create_project_screen.dart"
     "data_dashboard_screen.dart"
+    "data_policy_screen.dart"
+    "default_data.dart"
+    "display_name_preference.dart"
+    "download_data_screen.dart"
+    "firebase_utils.dart"
+    "list_projects_screen.dart"
+    "main.dart"
+    "manage_users_screen.dart"
+    "preferences_service.dart"
     "upload_data_screen.dart"
-    # "display_name_preferenece.dart"
-    # "preferences_service.dart"
-    # "settings_screen.dart"
+    "settings_screen.dart"
+    "display_name_preferenece.dart"
+    "utils.dart"
 
     # Add more script paths as needed
 )

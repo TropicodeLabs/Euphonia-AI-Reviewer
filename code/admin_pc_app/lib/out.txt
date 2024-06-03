@@ -1,0 +1,2951 @@
+##########
+Filename: app.dart
+##########
+Content:
+import 'package:flutter/material.dart';
+import 'auth_gate.dart';
+import 'list_projects_screen.dart';
+import 'settings_screen.dart'; // Import the settings screen
+import 'data_dashboard_screen.dart';
+import 'upload_data_screen.dart';
+import 'download_data_screen.dart';
+import 'manage_users_screen.dart';
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        useMaterial3: true,
+      ),
+      home: const AuthGate(),
+      routes: {
+        '/settings': (context) => SettingsScreen(),
+      },
+      onGenerateRoute: (RouteSettings settings) {
+        // rewrite with switch statement
+        switch (settings.name) {
+          case '/data_dashboard_screen':
+            final project =
+                settings.arguments as Map<String, dynamic>; // Cast to Map
+            return MaterialPageRoute(
+              builder: (context) {
+                return DataDashboardScreen(project: project);
+              },
+            );
+          case '/list_projects_screen':
+            final projects = settings.arguments as List<Map<String, dynamic>>;
+            return MaterialPageRoute(
+              builder: (context) {
+                return ListProjectsScreen(projects: projects);
+              },
+            );
+          case '/upload_data_screen':
+            final project =
+                settings.arguments as Map<String, dynamic>; // Cast to Map
+            return MaterialPageRoute(
+              builder: (context) {
+                return UploadDataScreen(project: project);
+              },
+            );
+          case '/data_dashboard_screen':
+            final project = settings.arguments as Map<String, dynamic>;
+            return MaterialPageRoute(
+              builder: (context) {
+                return DataDashboardScreen(project: project);
+              },
+            );
+          case '/download_data_screen':
+            final project =
+                settings.arguments as Map<String, dynamic>; // Cast to Map
+            return MaterialPageRoute(
+              builder: (context) {
+                return DownloadDataScreen(project: project);
+              },
+            );
+          case '/manage_users_screen':
+            final project =
+                settings.arguments as Map<String, dynamic>; // Cast to Map
+            return MaterialPageRoute(
+              builder: (context) {
+                return ManageUsersScreen(project: project);
+              },
+            );
+          default: // maybe we should return a page that does not requires arguments, like a home page or not found page
+            final project =
+                settings.arguments as Map<String, dynamic>; // Cast to Map
+            return MaterialPageRoute(
+              builder: (context) {
+                return DataDashboardScreen(project: project);
+              },
+            );
+        }
+      },
+    );
+  }
+}
+##########
+
+##########
+Filename: auth_gate.dart
+##########
+Content:
+import 'package:firebase_auth/firebase_auth.dart' hide EmailAuthProvider;
+import 'package:firebase_ui_auth/firebase_ui_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_ui_auth/firebase_ui_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'create_project_screen.dart';
+
+import 'list_projects_screen.dart';
+import 'firebase_utils.dart';
+
+class AuthGate extends StatelessWidget {
+  const AuthGate({super.key});
+
+  Future<List<Map<String, dynamic>>> _fetchUserProjects(String userId) async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('Users')
+          .doc(userId)
+          .collection('projects')
+          .get();
+
+      return snapshot.docs
+          .map((doc) => {
+                'projectId': doc.id,
+                ...doc.data() as Map<String, dynamic>,
+              })
+          .toList();
+    } catch (e) {
+      // Handle errors or return an empty list
+      print('Error fetching projects: $e');
+      return [];
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return SignInScreen(
+            providers: [
+              EmailAuthProvider(),
+            ],
+            headerBuilder: (context, constraints, shrinkOffset) {
+              return Padding(
+                padding: const EdgeInsets.all(20),
+                child: AspectRatio(
+                  aspectRatio: 1,
+                  child: Image.asset('assets/flutterfire_300x.png'),
+                ),
+              );
+            },
+            subtitleBuilder: (context, action) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: action == AuthAction.signIn
+                    ? const Text('Welcome to FlutterFire, please sign in!')
+                    : const Text('Welcome to Flutterfire, please sign up!'),
+              );
+            },
+            footerBuilder: (context, action) {
+              return const Padding(
+                padding: EdgeInsets.only(top: 16),
+                child: Text(
+                  'By signing in, you agree to our terms and conditions.',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              );
+            },
+            sideBuilder: (context, shrinkOffset) {
+              return Padding(
+                padding: const EdgeInsets.all(20),
+                child: AspectRatio(
+                  aspectRatio: 1,
+                  child: Image.asset('assets/flutterfire_300x.png'),
+                ),
+              );
+            },
+          );
+        } else {
+          final user = FirebaseAuth.instance.currentUser;
+          // User is logged in, check for projects
+          if (user == null) {
+            // This should theoretically never happen since snapshot.hasData is true
+            // But it's good practice to handle this case
+            return const Text('Unexpected error. Please try to log in again.');
+          }
+          // Detect if the user is new, if it is, add it to the database
+          FirebaseUtils.addUser(user);
+          // Use _fetchUserProjects in FutureBuilder
+          return FutureBuilder<List<Map<String, dynamic>>>(
+            future: FirebaseUtils.getProjects(user.uid),
+            builder: (context, projects) {
+              if (projects.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              } else if (projects.hasError || projects.data == null) {
+                return const Center(child: Text('Error fetching projects'));
+              } else if (projects.data!.isEmpty) {
+                // No projects found, navigate to CreateProjectScreen
+                return const CreateProjectScreen();
+              } else {
+                // Projects exist, pass them to ListProjectsScreen
+                return ListProjectsScreen(projects: projects.data!);
+              }
+            },
+          );
+        }
+      },
+    );
+  }
+}
+##########
+
+##########
+Filename: common_drawer.dart
+##########
+Content:
+import 'package:flutter/material.dart';
+import 'upload_data_screen.dart';
+
+class CommonDrawer extends StatelessWidget {
+  final Map<String, dynamic> project;
+
+  const CommonDrawer({Key? key, required this.project}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+// Add the drawer header
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          DrawerHeader(
+            decoration: BoxDecoration(
+              color: Colors.blue,
+            ),
+            child: Text('Menu',
+                style: TextStyle(color: Colors.white, fontSize: 24)),
+          ),
+          ListTile(
+            leading: Icon(Icons.dashboard),
+            title: Text('Dashboard'),
+            onTap: () {
+              Navigator.pushNamed(context, '/data_dashboard_screen',
+                  arguments: project);
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.upload_file),
+            title: Text('Upload'),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => UploadDataScreen(project: project),
+                ),
+              );
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.download),
+            title: Text('Download'),
+            onTap: () {
+              Navigator.pushNamed(context, '/download_data_screen',
+                  arguments: project);
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.people),
+            title: Text('Manage users'),
+            onTap: () {
+              Navigator.pushNamed(context, '/manage_users_screen',
+                  arguments: project);
+            },
+          ),
+          // navigate back to the list of projects
+          ListTile(
+            leading: Icon(Icons.arrow_back),
+            title: Text('Back to projects'),
+            onTap: () {
+              Navigator.pushNamed(context, '/');
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+##########
+
+##########
+Filename: create_project_screen.dart
+##########
+Content:
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:firebase_ui_auth/firebase_ui_auth.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:csv/csv.dart';
+import 'dart:io';
+import 'package:image/image.dart' as img;
+import 'list_projects_screen.dart';
+import 'data_policy_screen.dart';
+import 'firebase_utils.dart';
+
+class CreateProjectScreen extends StatefulWidget {
+  const CreateProjectScreen({super.key});
+
+  @override
+  State<CreateProjectScreen> createState() => _CreateProjectScreenState();
+}
+
+class _CreateProjectScreenState extends State<CreateProjectScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _titleController = TextEditingController();
+  final _descriptionController = TextEditingController();
+
+  List<String> _commonNames = [];
+  List<String> _speciesCodes = [];
+  String? _imagePath;
+  bool _useDefaultImage = false;
+  bool _isImageSelectedOrDefaultUsed =
+      false; // Track if an image is selected or default is used
+  bool _isCsvValid = false; // Track if the CSV is valid
+  bool _isProjectPublic = false;
+  bool _isLoading = false;
+
+  final _storage = FirebaseStorage.instance;
+  @override
+  void initState() {
+    super.initState();
+    // Initialize your state variables if needed
+  }
+
+  Future<void> pickImage() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      withData:
+          true, // Necessary to retrieve the image file for resolution check
+    );
+
+    if (result != null) {
+      final fileBytes = result.files.first.bytes;
+      final image = img.decodeImage(fileBytes!);
+      if (image!.width == 1280 && image.height == 720) {
+        setState(() {
+          _imagePath = result.files.single.path;
+        });
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Image must be 1280x720 resolution.')),
+        );
+      }
+    } else {
+      // User canceled the picker
+    }
+    // Update the state to reflect if an image is selected or default is used
+    if (_imagePath != null || _useDefaultImage) {
+      setState(() {
+        _isImageSelectedOrDefaultUsed =
+            true; // Image is selected or default is used
+      });
+    } else {
+      setState(() {
+        _isImageSelectedOrDefaultUsed = false;
+      });
+    }
+  }
+
+  Widget buildImagePreview() {
+    if (_imagePath == null) {
+      return Text('No image selected.');
+    } else {
+      return Column(children: [
+        AspectRatio(
+          aspectRatio: 16 / 9,
+          child: Image.file(File(_imagePath!), fit: BoxFit.cover),
+        ),
+        SizedBox(height: 20)
+      ]);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Create a Project'),
+        // logout is possible here
+        actions: [
+          IconButton(
+            icon: Icon(Icons.logout),
+            onPressed: () async {
+              FirebaseUtils.logout(context);
+            },
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildProjectInfoSection(),
+              SizedBox(height: 40),
+              _buildImageSection(),
+              SizedBox(height: 40),
+              _buildCsvSection(),
+              SizedBox(height: 40),
+              _projectPrivacySection(),
+              SizedBox(height: 40),
+              _buildSubmitButton(),
+              SizedBox(height: 40),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProjectInfoSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Project Information',
+            style: Theme.of(context).textTheme.headlineSmall),
+        SizedBox(height: 8),
+        _buildTextField(_titleController, 'Title', Icons.title),
+        SizedBox(height: 16),
+        _buildTextField(
+            _descriptionController, 'Description', Icons.description),
+      ],
+    );
+  }
+
+  Widget _projectPrivacySection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Admission Policy',
+            style: Theme.of(context).textTheme.titleMedium),
+        SizedBox(height: 8), // Add some spacing
+        Text(
+          'By default, all projects are set to private to protect your data. However, if you choose to make your project public, it could significantly enhance your project\'s visibility and potentially attract more contributions and data from the community.',
+        ),
+        InkWell(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => DataPolicyScreen()),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Text(
+              'More Info',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.secondary,
+                decoration: TextDecoration.underline,
+              ),
+            ),
+          ),
+        ),
+        Row(
+          children: [
+            Text('Public Project'),
+            Switch(
+              value: _isProjectPublic,
+              onChanged: (value) {
+                setState(() {
+                  _isProjectPublic = value;
+                });
+              },
+            ),
+            Spacer(),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTextField(
+      TextEditingController controller, String label, IconData icon) {
+    return TextFormField(
+      controller: controller,
+      decoration: InputDecoration(
+        labelText: label,
+        border: OutlineInputBorder(),
+        prefixIcon: Icon(icon),
+      ),
+      validator: (value) =>
+          value == null || value.isEmpty ? 'Please enter a $label' : null,
+    );
+  }
+
+  Widget _buildImageSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Project cover', style: Theme.of(context).textTheme.headlineSmall),
+        SizedBox(height: 8),
+        Text(
+          'Please select an image with a resolution of 1280x720 pixels to display as the project cover.',
+        ),
+        SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+                child:
+                    Row(mainAxisAlignment: MainAxisAlignment.start, children: [
+              Spacer(),
+              ElevatedButton(
+                onPressed: _useDefaultImage ? null : pickImage,
+                child: Text('Pick an Image'),
+              ),
+              SizedBox(width: 16),
+            ])),
+            // Introducing a vertical divider in the middle
+            Container(
+              height: 20,
+              child: VerticalDivider(color: Colors.grey),
+            ),
+            // Aligning checkbox to the very right with the text immediately next to it
+            Expanded(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  SizedBox(width: 16),
+                  Text("Use default image"),
+                  Checkbox(
+                    value: _useDefaultImage,
+                    onChanged: (bool? value) {
+                      setState(() {
+                        _useDefaultImage = value!;
+                        _isImageSelectedOrDefaultUsed =
+                            _useDefaultImage || _imagePath != null;
+                        if (_useDefaultImage) {
+                          _imagePath = null;
+                        }
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        if (!_useDefaultImage && _imagePath != null) ...[
+          SizedBox(height: 16),
+          buildImagePreview(),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildCsvSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Species Names', style: Theme.of(context).textTheme.headlineSmall),
+        SizedBox(height: 8),
+        Text(
+            'Import a CSV file with these exact column names: "common name" and "species code". The CSV file should contain at least two rows.'),
+        SizedBox(height: 8),
+        Text('Example:', style: TextStyle(fontWeight: FontWeight.bold)),
+        _buildCsvExampleTable([
+          ['common name', 'species code'],
+          ['Resplandescent Quetzal', 'Pharomachrus mocinno'],
+          ['Three-wattled Bellbird', 'Procnias tricarunculatus'],
+        ]),
+        SizedBox(height: 16),
+        Container(
+          padding: EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade400),
+            borderRadius: BorderRadius.circular(5),
+            color: Colors.grey.shade100,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Tip:',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+              SizedBox(height: 8),
+              RichText(
+                text: TextSpan(
+                  style: TextStyle(color: Colors.black, height: 1.5),
+                  children: [
+                    TextSpan(
+                        text:
+                            'The "species code" can represent call types within a species, allowing for versatile project categorization. '),
+                    TextSpan(text: 'In the app\'s display settings, '),
+                    TextSpan(
+                        text: '"species code" ',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    TextSpan(text: 'is positioned directly below '),
+                    TextSpan(
+                        text: '"common name" ',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    TextSpan(
+                        text:
+                            'in a vertical layout, ensuring organized presentation of project data. '),
+                    TextSpan(
+                        text:
+                            'Depending on user preference, both labels can be displayed if "both" is selected in the display name preferences. Alternatively, users may opt to display only one.'),
+                  ],
+                ),
+              ),
+              SizedBox(height: 8),
+              Text('Example of a custom csv file:',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              _buildCsvExampleTable([
+                ['common name', 'species code'],
+                ['White-faced capuchin', 'twitter'],
+                ['White-faced capuchin', 'lost call'],
+              ]),
+              // TODO: Add screenshot of how this example looks in the app
+              // TODO: Add a link to a sample CSV file
+            ],
+          ),
+        ),
+        SizedBox(height: 16),
+        ElevatedButton(
+          onPressed: pickAndParseCsv,
+          child: Text('Import CSV'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Theme.of(context).colorScheme.background,
+            foregroundColor: Colors.white,
+            padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+          ),
+        ),
+        _buildCsvImportFeedback(), // Add this line to include the feedback widget
+      ],
+    );
+  }
+
+  Widget _buildCsvExampleTable(List<List<String>> data) {
+    return Wrap(
+      children: [
+        Table(
+          border: TableBorder.all(),
+          columnWidths: const {
+            0: IntrinsicColumnWidth(),
+            1: IntrinsicColumnWidth(),
+          },
+          children: data.map((List<String> row) {
+            return TableRow(
+              children: row.map((String cell) {
+                return Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text(cell),
+                );
+              }).toList(),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSubmitButton() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        ElevatedButton(
+          onPressed:
+              (_isImageSelectedOrDefaultUsed && _isCsvValid && !_isLoading)
+                  ? createProjectCloudFunction
+                  : null,
+          child: _isLoading
+              ? CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                )
+              : Text('Create Project'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Theme.of(context).colorScheme.secondary,
+            foregroundColor: Colors.white,
+            padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> pickAndParseCsv() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['csv'],
+    );
+
+    if (result == null) return; // User canceled the picker
+
+    String filePath = result.files.single.path!;
+    String csvContent = await File(filePath).readAsString();
+
+    // Normalize line endings to \n
+    String normalizedContent =
+        csvContent.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+
+    List<String> lines = normalizedContent.split('\n');
+
+    List<List<String>> fields = [];
+    for (String line in lines) {
+      if (line.isEmpty || !line.contains(',')) continue;
+      List<String> row = line.split(',').map((cell) => cell.trim()).toList();
+      fields.add(row);
+    }
+
+    print("Fields: $fields"); // devbug print
+    // print field list length
+    print(fields.length);
+
+    if (!_isValidCsvFormat(fields)) {
+      _showCsvError(
+          "Wrong format. The CSV must contain 'common name' and 'species code' columns.");
+      return;
+    }
+
+    List<String> commonNames = [];
+    List<String> speciesCodes = [];
+    for (var i = 1; i < fields.length; i++) {
+      int commonNameIndex = fields[0].indexOf('common name');
+      int speciesCodeIndex = fields[0].indexOf('species code');
+
+      if (i > 10000) {
+        _showCsvError("Cannot import more than ten thousand names.");
+        return;
+      }
+
+      commonNames.add(fields[i][commonNameIndex]);
+      speciesCodes.add(fields[i][speciesCodeIndex]);
+    }
+
+    if (!_validateCsvData(commonNames, speciesCodes)) {
+      // Errors are handled within _validateCsvData
+      return;
+    }
+
+    // If all validations pass, assign the data to the state variables
+    setState(() {
+      _commonNames = commonNames;
+      _speciesCodes = speciesCodes;
+      _isCsvValid = true; // CSV is valid
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('CSV imported successfully!')),
+    );
+  }
+
+  bool _isValidCsvFormat(List<List<dynamic>> fields) {
+    // devbug prints
+    // print(fields);
+    // print(fields.isNotEmpty);
+    // print(fields[0].contains('common name'));
+    // print(fields[0].contains('species code'));
+    // print(fields[0]);
+    return fields.isNotEmpty &&
+        fields[0].any(
+            (header) => header.toString().toLowerCase() == 'common name') &&
+        fields[0]
+            .any((header) => header.toString().toLowerCase() == 'species code');
+  }
+
+  bool _validateCsvData(List<String> commonNames, List<String> speciesCodes) {
+    if (commonNames.length < 2 || speciesCodes.length < 2) {
+      _showCsvError(
+          "Insufficient data: Both 'Common Names' and 'Species Codes' columns must contain at least two entries to ensure a valid comparison. If your project involves binary classification, please include an additional 'Background' row in your CSV file to meet this requirement.");
+      return false;
+    }
+
+    if (commonNames.length != speciesCodes.length) {
+      _showCsvError(
+          "The number of common names must match the number of species codes.");
+      return false;
+    }
+
+    if (commonNames.any((name) => name.length < 1) ||
+        speciesCodes.any((code) => code.length < 1)) {
+      _showCsvError(
+          "Common names and species codes must be at least one character long.");
+      return false;
+    }
+
+    return true;
+  }
+
+  void _showCsvError(String message) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+    setState(() {
+      _isCsvValid = false; // CSV is invalid
+    });
+  }
+
+  Future<void> createProjectCloudFunction() async {
+    if (!(_formKey.currentState?.validate() ?? false) || _isLoading) {
+      return; // Early return if form is not valid or if already loading
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    final User? user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      _showLoginError();
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
+
+    String? imagePathBasename = _getImagePathBasename();
+
+    final HttpsCallable callable =
+        FirebaseFunctions.instance.httpsCallable('createProject');
+    try {
+      final HttpsCallableResult result = await callable.call(<String, dynamic>{
+        'title': _titleController.text,
+        'description': _descriptionController.text,
+        'isActive':
+            false, // By default all projects are inactive until the admin activates them manually
+        'isPublic': _isProjectPublic,
+        'imagePathBasename': imagePathBasename,
+        'labels': {
+          'commonName': _commonNames,
+          'speciesCode': _speciesCodes,
+        },
+      });
+
+      var projectData = result.data as Map<String, dynamic>;
+
+      // upload data to firebase storage to the desired location: projects/{projectId}/description/{imagePathBasename}
+      imagePathBasename = await _uploadImageIfNeeded(projectData['id']);
+
+      // get all projects in which the user is an admin
+
+      List<Map<String, dynamic>> projects =
+          await FirebaseUtils.getProjects(user.uid);
+
+      _navigateToListProjecstScreen(projects);
+    } catch (e) {
+      _showCreationError(e.toString());
+      // navigate back if failed
+      Navigator.pop(context);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  String _getImagePathBasename() {
+    if (_imagePath == null) return 'default';
+    return _imagePath!.split('/').last;
+  }
+
+  Future<String?> _uploadImageIfNeeded(String projectId) async {
+    if (_imagePath == null) return null;
+
+    String imagePathBasename = _imagePath!.split('/').last;
+    String storagePath = 'projects/$projectId/description/$imagePathBasename';
+    await _storage.ref(storagePath).putFile(File(_imagePath!));
+    return imagePathBasename;
+  }
+
+  void _navigateToListProjecstScreen(List<Map<String, dynamic>> projects) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ListProjectsScreen(
+          projects: projects,
+        ),
+      ),
+    );
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Project created successfully!')),
+    );
+  }
+
+  void _showLoginError() {
+    print('User is not logged in.');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('You must be logged in to create a project.')),
+    );
+  }
+
+  void _showCreationError(String error) {
+    print(error);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Failed to create project.')),
+    );
+  }
+
+  Widget _buildCsvImportFeedback() {
+    if (!_isCsvValid || _commonNames.isEmpty || _speciesCodes.isEmpty) {
+      return Container(); // Return an empty container if no CSV is imported or if it's invalid.
+    }
+
+    // Prepare strings to display the first and last three items
+    String commonNamesPreview = _getPreviewText(_commonNames);
+    String speciesCodesPreview = _getPreviewText(_speciesCodes);
+
+    return Card(
+      margin: EdgeInsets.only(top: 16),
+      child: Padding(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('CSV Import Successful',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            SizedBox(height: 8),
+            Text('Common Names: $commonNamesPreview'),
+            Text('Species Codes: $speciesCodesPreview'),
+            Text('Total Entries: ${_commonNames.length}'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _getPreviewText(List<String> list) {
+    // Get first and last three items, handling lists shorter than 6
+    int count = list.length;
+    String preview = list.sublist(0, count < 3 ? count : 3).join(', ');
+    if (count > 3) {
+      preview += ' ... ';
+      preview += list.sublist(count < 6 ? 3 : count - 3, count).join(', ');
+    }
+    return preview;
+  }
+}
+##########
+
+##########
+Filename: data_dashboard_screen.dart
+##########
+Content:
+import 'package:flutter/material.dart';
+import 'dart:io';
+import 'package:csv/csv.dart';
+import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:path/path.dart' as path;
+import 'utils.dart';
+
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+
+import 'dart:math';
+
+import 'package:just_audio/just_audio.dart';
+import 'package:collection/collection.dart';
+import 'package:firebase_core/firebase_core.dart';
+
+import 'package:archive/archive.dart';
+import 'package:path_provider/path_provider.dart';
+
+import 'upload_data_screen.dart';
+
+import 'common_drawer.dart';
+import 'package:flutter/material.dart';
+import 'package:percent_indicator/percent_indicator.dart'; // Add this package for the circular progress indicator
+
+class DataDashboardScreen extends StatefulWidget {
+  final Map<String, dynamic> project;
+
+  const DataDashboardScreen({Key? key, required this.project})
+      : super(key: key);
+
+  @override
+  _DataDashboardScreenState createState() => _DataDashboardScreenState();
+}
+
+class _DataDashboardScreenState extends State<DataDashboardScreen> {
+  @override
+  Widget build(BuildContext context) {
+    final projectId = widget.project['id'];
+
+    return Scaffold(
+      backgroundColor:
+          Color.fromARGB(255, 247, 247, 247), // Dark background color
+      appBar: AppBar(
+        title: Text(widget.project['title'] as String),
+        backgroundColor: Colors.blue,
+        elevation: 0,
+      ),
+      drawer: CommonDrawer(project: widget.project),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const SizedBox(height: 100),
+                StreamBuilder<DocumentSnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .doc("Projects/$projectId")
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return CircularProgressIndicator();
+                    } else if (snapshot.hasError) {
+                      return Text('Error: ${snapshot.error}',
+                          style: TextStyle(color: Colors.red));
+                    } else if (!snapshot.hasData || !snapshot.data!.exists) {
+                      return const Text("No data available",
+                          style: TextStyle(color: Colors.white));
+                    } else {
+                      final data =
+                          snapshot.data!.data() as Map<String, dynamic>;
+                      final numberOfClips = data['numberOfClips'] as int? ?? 0;
+                      final numberOfVerifications =
+                          data['numberOfVerifications'] as int? ?? 0;
+                      final progressPercentage = numberOfClips > 0
+                          ? (numberOfVerifications / numberOfClips)
+                          : 0;
+
+                      return Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              _buildDataCard(
+                                  'Total clips', numberOfClips.toString()),
+                              _buildDataCard('Total verifications',
+                                  numberOfVerifications.toString()),
+                            ],
+                          ),
+                          const SizedBox(height: 100),
+                          const Text(
+                            'Verification Progress',
+                            style: TextStyle(color: Colors.black, fontSize: 18),
+                          ),
+                          const SizedBox(height: 10),
+                          CircularPercentIndicator(
+                            radius: 120.0,
+                            lineWidth: 13.0,
+                            animation: true,
+                            percent: progressPercentage.toDouble(),
+                            center: Text(
+                              "${(progressPercentage * 100).toStringAsFixed(2)}%",
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 20.0,
+                                  color: Colors.black),
+                            ),
+                            circularStrokeCap: CircularStrokeCap.round,
+                            progressColor: Colors.blue,
+                          ),
+                        ],
+                      );
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDataCard(String title, String value) {
+    return Card(
+      color: Colors.blue,
+      child: Container(
+        width: 400,
+        child: ListTile(
+          title: Text(
+            title,
+            style: TextStyle(color: Colors.white),
+          ),
+          trailing: Text(
+            value,
+            style: const TextStyle(
+                color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+        ),
+      ),
+    );
+  }
+}
+##########
+
+##########
+Filename: data_policy_screen.dart
+##########
+Content:
+import 'package:flutter/material.dart';
+
+class DataPolicyScreen extends StatelessWidget {
+  const DataPolicyScreen({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    // Define a sage color
+    const Color sage = Colors.deepPurple;
+
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+        ),
+        title: const Text('Data Policy', style: TextStyle(color: Colors.white)),
+        backgroundColor: sage,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Data Policy',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: sage,
+              ),
+            ),
+            const SizedBox(height: 16),
+            buildSectionTitle('Public Projects:', sage),
+            buildBulletPoint(
+                'Public projects are visible to all users of the platform.',
+                sage),
+            buildBulletPoint(
+                'Any user can contribute annotations to public projects without needing special access or permissions.',
+                sage),
+            const SizedBox(height: 16),
+            buildSectionTitle('Private Projects:', sage),
+            buildBulletPoint(
+                'Private projects are only visible to users who have been granted access by the project administrator.',
+                sage),
+            buildBulletPoint(
+                'Access to annotate private projects requires a password, which is provided by the project administrator.',
+                sage),
+            const SizedBox(height: 16),
+            buildSectionTitle('Trusted Users and Data Presentation:', sage),
+            buildBulletPoint(
+                'Data will be presented to annotators until a Trusted User marks it as complete or until a consensus is reached.',
+                sage),
+            buildBulletPoint(
+                'Consensus is reached when a majority of annotators agree on a label, as specified by the project administrator.',
+                sage),
+            buildBulletPoint(
+                'This feature empowers administrators to maintain high-quality data within their projects.',
+                sage),
+            const SizedBox(height: 16),
+            buildSectionTitle('Data Privacy:', sage),
+            buildBulletPoint(
+                'We are committed to protecting your privacy and handling your data with the utmost care.',
+                sage),
+            buildBulletPoint(
+                'Your data will not be shared with any third parties without your explicit consent.',
+                sage),
+            buildBulletPoint(
+                'Any potential waiver of data ownership for collaborative or promotional purposes will be communicated and agreed upon directly through the app.',
+                sage),
+            const SizedBox(height: 16),
+            Text(
+              'All users are encouraged to respect the privacy and intellectual property of project administrators and contributors. '
+              'Misuse of the platform or violation of the data policy may result in access restrictions or account termination.\n\n'
+              'We reserve the right to update this policy as necessary to reflect changes in our services or legal requirements. '
+              'Users will be notified of significant changes, but you are encouraged to review the policy periodically.',
+              style: TextStyle(fontSize: 16, color: Colors.black),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget buildSectionTitle(String text, Color color) {
+    return Text(
+      text,
+      style: TextStyle(
+        fontSize: 20,
+        fontWeight: FontWeight.bold,
+        color: color,
+      ),
+    );
+  }
+
+  Widget buildBulletPoint(String text, Color color) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.circle, size: 8, color: color),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(fontSize: 16, color: Colors.black),
+          ),
+        ),
+      ],
+    );
+  }
+}
+##########
+
+##########
+Filename: default_data.dart
+##########
+Content:
+// this class will assist in getting the appropiate database names for the usual column names
+// so the user of this class will be able of getting the appropiate column name for the database
+// by providing  a not parsed column name
+class DefaultClipColumns {
+  static const List<String> columnNames = [
+    "Selection",
+    "Begin File",
+    "Begin Time (s)",
+    "End Time (s)",
+    "Low Freq (Hz)",
+    "High Freq (Hz)",
+    "Species Code",
+    "Common Name",
+    "Confidence",
+    "clip_basename",
+  ];
+
+  static const List<String> databaseColumnNames = [
+    "selection",
+    "beginFile",
+    "beginTime",
+    "endTime",
+    "lowFreq",
+    "highFreq",
+    "speciesCode",
+    "commonName",
+    "confidence",
+    "clipBasename",
+  ];
+
+  /// Returns the database column name for a given user-friendly column name.
+  /// If the column name is not found, returns null.
+  static String? getDatabaseColumnName(String columnName) {
+    final index = columnNames.indexOf(columnName);
+    return index != -1 ? databaseColumnNames[index] : null;
+  }
+
+  static String? getColumnFriendlyName(String databaseColumnName) {
+    final index = databaseColumnNames.indexOf(databaseColumnName);
+    return index != -1 ? columnNames[index] : null;
+  }
+}
+##########
+
+##########
+Filename: display_name_preference.dart
+##########
+Content:
+import 'package:flutter/material.dart';
+
+class DisplayNamePreference with ChangeNotifier {
+  String _preference = 'both';
+
+  String get preference => _preference;
+
+  void setPreference(String newPreference) {
+    _preference = newPreference;
+    notifyListeners();
+  }
+}
+##########
+
+##########
+Filename: download_data_screen.dart
+##########
+Content:
+import 'package:flutter/material.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:file_picker/file_picker.dart';
+import 'dart:io';
+
+class DownloadDataScreen extends StatefulWidget {
+  final Map<String, dynamic> project;
+
+  const DownloadDataScreen({Key? key, required this.project}) : super(key: key);
+
+  @override
+  _DownloadDataScreenState createState() => _DownloadDataScreenState();
+}
+
+class _DownloadDataScreenState extends State<DownloadDataScreen> {
+  bool _isPreparingDownload = false;
+  bool _isDownloadReady = false;
+  String _downloadStatus = 'Ready to prepare download';
+  String? _zipGSUri;
+  String _messages = "";
+
+  Future<void> _startDownloadProcess() async {
+    setState(() {
+      _isPreparingDownload = true;
+      _downloadStatus = 'Preparing download...';
+    });
+
+    final functions = FirebaseFunctions.instance;
+    final callable = functions.httpsCallable('processAudioDownload');
+    try {
+      final result = await callable.call({'projectId': widget.project['id']});
+      print("Download process started: ${result.data['processDocId']}");
+      _listenToDownloadProcess(result.data['processDocId']);
+    } catch (e) {
+      setState(() {
+        _isPreparingDownload = false;
+        _downloadStatus = 'Failed to prepare download: $e';
+      });
+    }
+  }
+
+  void _listenToDownloadProcess(String processDocId) {
+    final processDocRef = FirebaseFirestore.instance
+        .collection(
+            'AudioProcessingTasks/${widget.project['id']}/DownloadTasks')
+        .doc(processDocId);
+
+    processDocRef.snapshots().listen(
+      (snapshot) {
+        if (snapshot.exists) {
+          final data = snapshot.data();
+          setState(() {
+            _downloadStatus =
+                'Download preparation progress: ${data?['percentage']}%';
+            _messages = data?['messages'] ?? "";
+          });
+
+          if (data?['status'] == 'completed') {
+            _zipGSUri = data?['zipGSUri'];
+            _downloadStatus = 'Download ready. Tap to download.';
+            _isPreparingDownload = false;
+            _isDownloadReady = true;
+          } else if (data?['status'] == 'failed') {
+            _downloadStatus = 'Download failed: ${data?['message']}';
+            _isPreparingDownload = false;
+          }
+        }
+      },
+      onError: (error) => setState(() {
+        _downloadStatus = 'Error listening to download process: $error';
+        _isPreparingDownload = false;
+      }),
+    );
+  }
+
+  Future<void> _downloadFile() async {
+    if (_zipGSUri != null) {
+      final String? selectedDirectory =
+          await FilePicker.platform.getDirectoryPath();
+
+      if (selectedDirectory != null) {
+        // Convert the GS URI to a reference
+        FirebaseStorage storage = FirebaseStorage.instance;
+        Reference ref = storage.ref().child(_zipGSUri!);
+
+        String basename = _zipGSUri!.split('/').last;
+
+        print('zipGSUri: $_zipGSUri');
+
+        print('Downloading file to $selectedDirectory/downloaded_file.zip');
+
+        try {
+          final bytes = await ref.getData();
+          if (bytes != null) {
+            File file = File('$selectedDirectory/$basename');
+            await file.writeAsBytes(bytes);
+            setState(() {
+              _downloadStatus = 'File downloaded successfully to ${file.path}';
+            });
+          } else {
+            setState(() {
+              _downloadStatus = 'Failed to download file: File is empty';
+            });
+          }
+        } catch (e) {
+          print('Failed to download file: $e');
+          if (e is FirebaseException) {
+            print('Details: ${e.message}');
+            setState(() {
+              _downloadStatus = 'Failed to download file: ${e.message}';
+            });
+          } else {
+            setState(() {
+              _downloadStatus = 'Failed to download file: Unknown error';
+            });
+          }
+        }
+      } else {
+        setState(() {
+          _downloadStatus = 'Download cancelled.';
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Download Data'),
+      ),
+      body: Center(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (_isPreparingDownload)
+                CircularProgressIndicator()
+              else if (!_isDownloadReady)
+                ElevatedButton(
+                  onPressed: _startDownloadProcess,
+                  child: Text('Prepare Download'),
+                ),
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Text(_downloadStatus),
+              ),
+              Text(_messages),
+              if (_isDownloadReady)
+                ElevatedButton(
+                  onPressed: _downloadFile,
+                  child: Text('Start Download'),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+##########
+
+##########
+Filename: firebase_utils.dart
+##########
+Content:
+// FirebaseUtils.dart
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+
+class FirebaseUtils {
+  static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  static final FirebaseStorage _storage = FirebaseStorage.instance;
+
+  static Future<List<Map<String, dynamic>>> getProjects(String userId) async {
+    try {
+      final QuerySnapshot querySnapshot = await _firestore
+          .collection('Projects')
+          .where('createdBy', isEqualTo: userId)
+          .get();
+
+      var imageUrlFutures = querySnapshot.docs.map((doc) async {
+        Map<String, dynamic> projectData = doc.data() as Map<String, dynamic>;
+        String imagePathBasename =
+            projectData['imagePathBasename'] ?? 'default';
+        if (imagePathBasename == 'default') {
+          return {'id': doc.id, ...projectData, 'imageUrl': null};
+        } else {
+          try {
+            String imageUrl = await _storage
+                .ref('projects/${doc.id}/description/$imagePathBasename')
+                .getDownloadURL();
+            return {'id': doc.id, ...projectData, 'imageUrl': imageUrl};
+          } catch (e) {
+            print("Error fetching image URL for project ${doc.id}: $e");
+            return {'id': doc.id, ...projectData};
+          }
+        }
+      });
+
+      List<Map<String, dynamic>> projects = await Future.wait(imageUrlFutures);
+      return projects;
+    } catch (e) {
+      print("Error getting projects: $e");
+      return [];
+    }
+  }
+
+  static Future<bool> checkIfFileExistsInFirebaseStorage(
+      String filePath) async {
+    final storageRef = FirebaseStorage.instance.ref().child(filePath);
+    try {
+      // Try to get the download URL
+      final url = await storageRef.getDownloadURL();
+      // If successful, the file exists
+      return true;
+    } on FirebaseException catch (e) {
+      // If an error occurs, check if it's because the file doesn't exist
+      if (e.code == 'object-not-found') {
+        // File doesn't exist
+        return false;
+      }
+      // Re-throw the exception if it's caused by something else
+      rethrow;
+    }
+  }
+
+  static Future<void> addUser(User user) async {
+    final userRef =
+        FirebaseFirestore.instance.collection('Users').doc(user.uid);
+    final userDoc = await userRef.get();
+    if (!userDoc.exists) {
+      await userRef.set({
+        'email': user.email,
+        'displayName': user.displayName,
+        'createdAt': FieldValue.serverTimestamp(),
+        'lastLogin': FieldValue.serverTimestamp(),
+        'isTrusted': false,
+        'photoURL': user.photoURL,
+        'isAdmin': false,
+      });
+    }
+  }
+
+  static Future<void> updateUserLastLogin(User user) async {
+    final userRef =
+        FirebaseFirestore.instance.collection('Users').doc(user.uid);
+    await userRef.update({
+      'lastLogin': FieldValue.serverTimestamp(),
+    });
+  }
+
+  static Future<void> updateUserIsTrusted(String userId, bool isTrusted) async {
+    final userRef = FirebaseFirestore.instance.collection('Users').doc(userId);
+    await userRef.update({
+      'isTrusted': isTrusted,
+    });
+  }
+
+  static Future<void> updateUserIsAdmin(String userId, bool isAdmin) async {
+    final userRef = FirebaseFirestore.instance.collection('Users').doc(userId);
+    await userRef.update({
+      'isAdmin': isAdmin,
+    });
+  }
+
+  static void logout(BuildContext context) async {
+    await FirebaseAuth.instance.signOut();
+
+    Navigator.of(context)
+        .pushNamedAndRemoveUntil('/', (Route<dynamic> route) => false);
+  }
+}
+##########
+
+##########
+Filename: list_projects_screen.dart
+##########
+Content:
+import 'package:firebase_ui_auth/firebase_ui_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'firebase_utils.dart';
+import 'create_project_screen.dart';
+
+class ListProjectsScreen extends StatefulWidget {
+  final List<Map<String, dynamic>> projects;
+
+  const ListProjectsScreen({super.key, required this.projects});
+
+  @override
+  State<ListProjectsScreen> createState() => _ListProjectsScreenState();
+}
+
+class _ListProjectsScreenState extends State<ListProjectsScreen> {
+  late List<Map<String, dynamic>> projects;
+
+  final imgAspectRatio = 16 / 9;
+
+  @override
+  void initState() {
+    super.initState();
+    projects = widget.projects; // Assign 'projects' in initState
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Your projects'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.logout),
+            onPressed: () async {
+              FirebaseUtils.logout(context);
+            },
+          ),
+        ],
+      ),
+      body: ListView.builder(
+        itemCount: projects.length,
+        itemBuilder: (context, index) {
+          return buildProjectItem(projects[index]);
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          // Navigate to the CreateProjectScreen
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) => const CreateProjectScreen()),
+          );
+        },
+        child: Icon(Icons.add),
+        tooltip: 'Add New Project',
+      ),
+    );
+  }
+
+  Widget buildProjectItem(Map<String, dynamic> project) {
+    return Card(
+      clipBehavior:
+          Clip.antiAlias, // Ensures the image is clipped to the card shape
+      child: InkWell(
+        onTap: () {
+          Navigator.pushNamed(
+            context,
+            '/data_dashboard_screen',
+            arguments: project,
+          );
+        },
+        child: IntrinsicHeight(
+          // Ensures the row's children share the same height
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment
+                .stretch, // Stretch row items to fit the card's height
+            children: [
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment
+                        .start, // Align content to the start vertically
+                    children: [
+                      Text(
+                        project['title'],
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                      ),
+                      SizedBox(height: 5),
+                      Text(project['description']),
+                    ],
+                  ),
+                ),
+              ),
+              Container(
+                width: 200.0 * imgAspectRatio,
+                height: 200.0,
+                child: _getProjectImage(
+                    project), // This will display the image on the right
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _getProjectImage(Map<String, dynamic> project) {
+    final String? imagePathBasename = project['imagePathBasename'];
+    final String? imageUrl = project['imageUrl'];
+
+    // Check if imagePathBasename is 'default', null, or if imageUrl is null or empty
+    if (imagePathBasename == 'default' ||
+        imagePathBasename == null ||
+        imageUrl == null ||
+        imageUrl.isEmpty) {
+      // Return an empty Container (or SizedBox) when no image should be displayed
+      return SizedBox.shrink(); // This takes up no space
+    }
+
+    // If there's a valid imageUrl, proceed to render the image
+    const double imageHeight = 200.0; // Fixed height for the image
+    double imageWidth =
+        200.0 * imgAspectRatio; // Calculate width based on the aspect ratio
+
+    return ClipRect(
+      child: Container(
+        color: Colors
+            .grey, // Background color in case the image doesn't fill the area
+        height: imageHeight,
+        width: imageWidth,
+        child: CachedNetworkImage(
+          imageUrl: imageUrl,
+          placeholder: (context, url) => CircularProgressIndicator(),
+          errorWidget: (context, url, error) => Icon(Icons.error),
+          fit: BoxFit.fitHeight, // Adjust the fit as needed
+        ),
+      ),
+    );
+  }
+}
+##########
+
+##########
+Filename: main.dart
+##########
+Content:
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+// import 'display_name_preference.dart'; // Import the DisplayNamePreference model
+// import 'card_deck_model.dart'; // Import the CardDeckModel
+import 'app.dart';
+import 'firebase_options.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  )
+      .then((value) => print('Firebase initialized successfully'))
+      .catchError((e) => print('Failed to initialize Firebase: $e'));
+
+  runApp(
+    MyApp(),
+  );
+}
+##########
+
+##########
+Filename: manage_users_screen.dart
+##########
+Content:
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
+import 'common_drawer.dart';
+
+class ManageUsersScreen extends StatefulWidget {
+  final Map<String, dynamic> project;
+
+  const ManageUsersScreen({Key? key, required this.project}) : super(key: key);
+
+  @override
+  _ManageUsersScreenState createState() => _ManageUsersScreenState();
+}
+
+class _ManageUsersScreenState extends State<ManageUsersScreen> {
+  bool _passwordVisible = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Manage Users'),
+        backgroundColor: Colors.blue,
+      ),
+      drawer: CommonDrawer(project: widget.project),
+      body: Container(
+        color: Colors.white,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                'Users',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+            ),
+            Expanded(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('Users')
+                    .where('projects', arrayContains: widget.project['id'])
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Center(child: CircularProgressIndicator());
+                  }
+
+                  if (!snapshot.hasData) {
+                    return Center(
+                        child: Text('No users found for this project.'));
+                  }
+
+                  return ListView.separated(
+                    itemCount: snapshot.data!.docs.length,
+                    itemBuilder: (context, index) {
+                      var user = snapshot.data!.docs[index];
+                      return Align(
+                        alignment: Alignment.center,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(maxWidth: 400),
+                          child: _buildUserCard(
+                              user['email'] ?? 'No Name', user['lastLogin']),
+                        ),
+                      );
+                    },
+                    separatorBuilder: (context, index) =>
+                        Divider(color: Colors.grey[800]),
+                  );
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Text(
+                'Share the project password with users to allow them to join the project and contribute to data verification.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16),
+              ),
+            ),
+            _buildPasswordCard(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUserCard(String email, Timestamp lastLogin) {
+    return Card(
+      color: Colors.blue,
+      margin: EdgeInsets.symmetric(vertical: 8.0),
+      child: ListTile(
+        title: Text(email, style: TextStyle(color: Colors.white)),
+        subtitle: Text("Last login: ${_parseTimestamp(lastLogin)}",
+            style: TextStyle(color: Colors.white70)),
+      ),
+    );
+  }
+
+  Widget _buildPasswordCard() {
+    return Card(
+      color: Colors.blue,
+      margin: EdgeInsets.all(16.0),
+      child: ListTile(
+        title: TextFormField(
+          obscureText: !_passwordVisible,
+          initialValue: widget.project['password'],
+          style: TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            labelText: 'Project Password',
+            labelStyle: TextStyle(color: Colors.white70),
+            border: InputBorder.none,
+            suffixIcon: IconButton(
+              icon: Icon(
+                  _passwordVisible ? Icons.visibility : Icons.visibility_off,
+                  color: Colors.white),
+              onPressed: () {
+                setState(() {
+                  _passwordVisible = !_passwordVisible;
+                });
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _parseTimestamp(Timestamp timestamp) {
+    final date = timestamp.toDate();
+    return "${date.year}-${date.month}-${date.day} ${date.hour}:${date.minute}";
+  }
+}
+##########
+
+##########
+Filename: preferences_service.dart
+##########
+Content:
+import 'package:shared_preferences/shared_preferences.dart';
+
+class PreferencesService {
+  Future<void> setDisplayNamePreference(String preference) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('displayNamePreference', preference);
+  }
+
+  Future<String> getDisplayNamePreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('displayNamePreference') ?? 'both';
+  }
+}
+##########
+
+##########
+Filename: upload_data_screen.dart
+##########
+Content:
+import 'package:flutter/material.dart';
+import 'dart:io';
+import 'package:csv/csv.dart';
+import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:path/path.dart' as path;
+import 'utils.dart';
+
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+
+import 'dart:math';
+
+import 'package:just_audio/just_audio.dart';
+import 'package:collection/collection.dart';
+import 'package:firebase_core/firebase_core.dart';
+
+import 'package:archive/archive.dart';
+import 'package:path_provider/path_provider.dart';
+import 'common_drawer.dart';
+
+class UploadDataScreen extends StatefulWidget {
+  final Map<String, dynamic> project;
+
+  const UploadDataScreen({Key? key, required this.project}) : super(key: key);
+
+  @override
+  _UploadDataScreenState createState() => _UploadDataScreenState();
+}
+
+class _UploadDataScreenState extends State<UploadDataScreen> {
+  String? _clipInfoFilePath;
+  String? _clipsDirectoryPath;
+  bool _isUploading = false;
+  String _uploadStatus = '';
+  String _validationStatus = '';
+  bool _isValidatedSuccessfully = false;
+  List<List<dynamic>> _rows = [];
+  List<ClipData> _clipsToUpload = [];
+  List<FileSystemEntity> _absolutePathsOfFilesToUpload = [];
+  ValidationSummary? _validationSummary;
+  String _uploadProgress = '';
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.project['title'] as String),
+      ),
+      drawer: CommonDrawer(project: widget.project),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment
+                  .center, // Align items vertically to the center
+              crossAxisAlignment: CrossAxisAlignment
+                  .center, // Align items horizontally to the center
+              children: [
+                Text(
+                  'Upload Project Data',
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
+                SizedBox(height: 20),
+                Text(
+                  'Select the clip information CSV file that contains metadata about the clips you wish to upload.',
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 10),
+                ElevatedButton(
+                  onPressed: () => _pickClipInfoFile(),
+                  child: Text('Select Clip Information CSV'),
+                ),
+                SizedBox(height: 8),
+                Text(_clipInfoFilePath ?? 'No file selected',
+                    textAlign: TextAlign.center),
+                SizedBox(height: 20),
+                Text(
+                  'Select the directory containing the clips referenced in the CSV file.',
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 10),
+                ElevatedButton(
+                  onPressed: () => _pickClipsDirectory(),
+                  child: Text('Select Clips Directory'),
+                ),
+                SizedBox(height: 8),
+                Text(_clipsDirectoryPath ?? 'No directory selected',
+                    textAlign: TextAlign.center),
+                SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: (_clipInfoFilePath != null &&
+                          _clipsDirectoryPath != null &&
+                          !_isUploading)
+                      ? () => _startDataValidation()
+                      : null,
+                  child: Text('Validate upload'),
+                ),
+                SizedBox(height: 16),
+                Text(
+                  _validationStatus,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: _validationStatus.toLowerCase().contains('error')
+                        ? Colors.red
+                        : Colors.black,
+                  ),
+                ),
+                //HERE LETS RENDER THE INFO BOX
+                // Inside the build method, after the _validationStatus Text widget
+                if (_isValidatedSuccessfully && _validationSummary != null)
+                  Column(
+                    children: [
+                      Container(
+                        margin: EdgeInsets.only(top: 20),
+                        padding: EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.green),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: _buildValidationSummaryWidgets(
+                              _validationSummary!),
+                        ),
+                      ),
+                      SizedBox(height: 20),
+                      ElevatedButton(
+                        onPressed:
+                            _uploadData, // Placeholder function for upload logic
+                        child: Text('Upload Data'),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        _uploadStatus,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: _uploadStatus.toLowerCase().contains('error')
+                              ? Colors.red
+                              : Colors.black,
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    // Build your UI here, similar to what you have in ManageProjectScreen
+  }
+
+  // Include all the methods related to file picking, validation, and uploading
+  // Basically, you'll move methods like _pickClipInfoFile, _pickClipsDirectory,
+  // _startDataValidation, _validateData, _uploadData, etc., from your existing
+  // ManageProjectScreen class to here.
+
+  Future<void> _pickClipInfoFile() async {
+    final result = await FilePicker.platform.pickFiles();
+    if (result != null) {
+      setState(() {
+        _clipInfoFilePath = result.files.single.path;
+      });
+    }
+  }
+
+  Future<void> _pickClipsDirectory() async {
+    final result = await FilePicker.platform.getDirectoryPath();
+    if (result != null) {
+      setState(() {
+        _clipsDirectoryPath = result;
+      });
+    }
+  }
+
+  Future<void> _startDataValidation() async {
+    final validationSuccess = await _validateData();
+    if (validationSuccess) {
+      setState(() {
+        _isValidatedSuccessfully = true;
+        // Assuming _validateData method updates _validationSummary appropriately
+      });
+    } else {
+      setState(() {
+        _isValidatedSuccessfully = false;
+        _validationSummary =
+            null; // Clear previous summary if validation failed
+      });
+    }
+  }
+
+  Future<bool> _validateData() async {
+    _updateValidationStatus('Validating...');
+    if (!_areFilesSelected()) {
+      return false;
+    }
+
+    _rows = [];
+    try {
+      _rows = await _readCsvFile();
+      _clipsToUpload = _getClipDataListFromCsvRows(_rows);
+    } catch (e) {
+      _updateValidationStatus(
+          'Error: CSV format is incorrect. ${e.toString()}');
+      print(e);
+      return false;
+    }
+
+    if (_rows.isEmpty) {
+      // This check ensures rows is not null and not empty
+      return false;
+    }
+
+    Set<String> csvBasenames = _extractCsvBasenames(_rows);
+    if (csvBasenames.isEmpty) {
+      return false;
+    }
+
+    // Assuming _listWavFilesInDirectory only returns files that are in csvBasenames
+    _absolutePathsOfFilesToUpload =
+        await _listWavFilesInDirectory(csvBasenames);
+    if (_absolutePathsOfFilesToUpload.isEmpty) {
+      _updateValidationStatus('No WAV files found in the selected directory.');
+      return false;
+    }
+
+    // Assuming _checkForMissingAndIgnoredBasenames returns a boolean
+    // indicating whether the check passed and also updates the UI with relevant messages
+    bool checkPassed =
+        _checkForMissingBasenames(csvBasenames, _absolutePathsOfFilesToUpload);
+    if (!checkPassed) {
+      return false;
+    }
+
+    // Calculate ignored basenames for passing to _validateFiles
+    Set<String> allBasenames = _absolutePathsOfFilesToUpload
+        .map((file) => path.basename(file.path))
+        .toSet();
+    Set<String> ignoredBasenames = allBasenames.difference(csvBasenames);
+
+    // Now calling _validateFiles with both required arguments
+    _validationSummary =
+        await _validateFiles(_absolutePathsOfFilesToUpload, ignoredBasenames);
+    if (_validationSummary == null) {
+      _updateValidationStatus('Error: Failed to validate files.');
+      return false;
+    }
+
+    // If you reach here, it means validation passed successfully
+    _updateValidationStatus('Validation successful. Ready to upload.');
+    return true;
+  }
+
+  void _updateValidationStatus(String message) {
+    setState(() {
+      _validationStatus = message;
+    });
+  }
+
+  bool _areFilesSelected() {
+    if (_clipInfoFilePath == null || _clipsDirectoryPath == null) {
+      _updateValidationStatus(
+          'Error: Both a clip information file and a clips directory must be selected.');
+      return false;
+    }
+    return true;
+  }
+
+  Future<List<List<dynamic>>> _readCsvFile() async {
+    // quizas quitarle
+    final File csvFile = File(_clipInfoFilePath!);
+    String csvContent = await csvFile.readAsString();
+    return Utils.convertCsvStringToListOfLists(
+        csvContent); // Ensure this method name is correct.
+  }
+
+  Set<String> _extractCsvBasenames(List<List<dynamic>> rows) {
+    //  first case, it is empty
+    if (rows.isEmpty) {
+      _updateValidationStatus('Error: invalid CSV.');
+      return {};
+    }
+    // second case, it does not contain the clip_basename
+    if (!rows.first.contains('clip_basename')) {
+      _updateValidationStatus(
+          'Error: CSV format is incorrect. The first row must contain a column named "clip_basename".');
+      return {};
+    }
+    return rows
+        .skip(1)
+        .map((row) => row[rows.first.indexOf('clip_basename')].toString())
+        .toSet();
+  }
+
+  Future<List<FileSystemEntity>> _listWavFilesInDirectory(
+      Set<String> csvBasenames) async {
+    final dir = Directory(_clipsDirectoryPath!);
+    List<FileSystemEntity> wavFilesInDir = await dir
+        .list()
+        .where((file) => path.extension(file.path).toLowerCase() == '.wav')
+        .toList();
+    return wavFilesInDir
+        .where((file) => csvBasenames.contains(path.basename(file.path)))
+        .toList();
+  }
+
+  bool _checkForMissingBasenames(
+      Set<String> csvBasenames, List<FileSystemEntity> files) {
+    final Set<String> fileBasenames =
+        files.map((file) => path.basename(file.path)).toSet();
+    final Set<String> missingBasenames = csvBasenames.difference(fileBasenames);
+
+    if (missingBasenames.isNotEmpty) {
+      _updateValidationStatus(
+          'Error: Missing basenames in directory: ${missingBasenames.join(", ")}.');
+      return false;
+    }
+
+    return true;
+  }
+
+  Future<ValidationSummary?> _validateFiles(
+      List<FileSystemEntity> files, Set<String> ignoredBasenames) async {
+    if (files.isEmpty) return null;
+
+    List<double> durations = [];
+    List<double> fileSizes = [];
+
+    for (FileSystemEntity file in files) {
+      File wavFile = File(file.path);
+      double durationInSeconds = await _getWavDuration(wavFile);
+      durations.add(durationInSeconds);
+
+      int fileSize = await wavFile.length();
+      fileSizes.add(fileSize.toDouble());
+    }
+
+    double meanFileSize = fileSizes.reduce((a, b) => a + b) / fileSizes.length;
+    double minFileSize = fileSizes.reduce(min);
+    double maxFileSize = fileSizes.reduce(max);
+
+    double meanDuration = durations.reduce((a, b) => a + b) / durations.length;
+    double minDuration = durations.reduce(min);
+    double maxDuration = durations.reduce(max);
+
+    return ValidationSummary(
+      totalFiles: files.length,
+      meanFileSize: _formatBytes(meanFileSize),
+      minFileSize: _formatBytes(minFileSize),
+      maxFileSize: _formatBytes(maxFileSize),
+      meanDuration: meanDuration,
+      minDuration: minDuration,
+      maxDuration: maxDuration,
+      ignoredFiles: ignoredBasenames.toList(),
+    );
+  }
+
+  String _formatBytes(double bytes, {int decimals = 2}) {
+    if (bytes <= 0) return "0 Bytes";
+    const suffixes = ["Bytes", "KB", "MB", "GB", "TB"];
+    int i = (log(bytes) / log(1024)).floor();
+    return '${(bytes / pow(1024, i)).toStringAsFixed(decimals)} ${suffixes[i]}';
+  }
+
+  void _showValidationSummary() {
+    if (_validationSummary == null) return;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Validation Summary'),
+          content: SingleChildScrollView(
+            child: ListBody(
+              children: [
+                Text('Total Files: ${_validationSummary!.totalFiles}'),
+                Text('Mean File Size: ${_validationSummary!.meanFileSize}'),
+                Text(
+                    'Min/Max File Size: ${_validationSummary!.minFileSize} / ${_validationSummary!.maxFileSize}'),
+                Text(
+                    'Mean Duration: ${_validationSummary!.meanDuration.toStringAsFixed(2)}s'),
+                Text(
+                    'Min/Max Duration: ${_validationSummary!.minDuration.toStringAsFixed(2)}s / ${_validationSummary!.maxDuration.toStringAsFixed(2)}s'),
+                if (_validationSummary!.ignoredFiles.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Text(
+                        'Ignored Files: \n${_validationSummary!.ignoredFiles.join('\n')}'),
+                  ),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: Text('OK'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  ////////////////////////////////////////////////////////  REFORMATTING
+
+  Future<double> _getWavDuration(File wavFile) async {
+    // Calculate duration of the .wav file
+    // get source from absolute path
+    String absolutePath = wavFile.absolute.path;
+    // print(absolutePath);
+    final audioPlayer = AudioPlayer();
+    try {
+      final duration = await audioPlayer.setFilePath(absolutePath);
+
+      if (duration == null) {
+        throw Exception('Failed to get duration of file ${wavFile.path}');
+      }
+      double durationInSeconds = duration.inSeconds.toDouble();
+      // print('Duration in seconds: $durationInSeconds' +
+      //     ' for file ' +
+      //     wavFile.path);
+
+      await audioPlayer.dispose();
+      return durationInSeconds;
+    } catch (e) {
+      await audioPlayer.dispose();
+      throw Exception('Failed to get duration of file ${wavFile.path}: $e');
+    }
+  }
+
+  List<Widget> _buildValidationSummaryWidgets(ValidationSummary summary) {
+    return [
+      Text('Validation Summary:',
+          style: TextStyle(fontWeight: FontWeight.bold)),
+      Text('• Total Files: ${summary.totalFiles}'),
+      Text('• Mean File Size: ${summary.meanFileSize}'),
+      Text(
+          '• File Size Range: ${summary.minFileSize} - ${summary.maxFileSize}'),
+      Text(
+          '• Mean Duration: ${summary.meanDuration.toStringAsFixed(2)} seconds'),
+      Text(
+          '• Duration Range: ${summary.minDuration.toStringAsFixed(2)} - ${summary.maxDuration.toStringAsFixed(2)} seconds'),
+      if (summary.ignoredFiles.isNotEmpty)
+        Text('• Ignored Files: \n  - ${summary.ignoredFiles.join('\n  - ')}'),
+    ];
+  }
+
+  void _uploadData() async {
+    if (_isUploading) return;
+
+    setState(() {
+      _isUploading = true;
+      _uploadStatus = 'Uploading...';
+    });
+
+    /// A. upload wav files by first compressing batches of 500 files //////////////////
+    /// and then uploading them to the project's firebase storage cached folder
+    /// which will be used by a cloud function that i will have to call from here
+    /// to uncompress it and move it to the final folder
+    try {
+      for (var i = 0; i < _absolutePathsOfFilesToUpload.length; i += 500) {
+        var batch = _absolutePathsOfFilesToUpload.sublist(
+            i, min(i + 500, _absolutePathsOfFilesToUpload.length));
+        String pathOfBatchInTmpLocalPath = '';
+        String firebaseStorageCompressedFilePath = '';
+
+        //0.0 TODO: check if the files are already in the desired project's firebase storage path
+        // probably through a cloud function that will receive a list of max length 500
+
+        // 0.1 Compress the batch of wav files
+        // into a temporary directory
+        // later we will clean this directory
+        try {
+          pathOfBatchInTmpLocalPath = await _compressBatchOfWavFiles(batch);
+        } catch (e) {
+          print('Compression error: $e');
+          setState(() {
+            _uploadStatus = 'Compression Error: $e';
+          });
+          return;
+        }
+
+        // 1. Upload the batch to the project's firebase storage cached folder
+        try {
+          firebaseStorageCompressedFilePath =
+              await _uploadBatchOfWavFilesToCachedFolder(
+                  pathOfBatchInTmpLocalPath, batch);
+        } catch (e) {
+          print('Upload error: $e');
+          setState(() {
+            _uploadStatus = 'Upload Error: $e';
+          });
+          // delete compressed file from local storage. It handles its own errors
+          await _cleanTmpDirectory(pathOfBatchInTmpLocalPath);
+          return;
+        }
+
+        //2. Clean the temporary directory. It handles its own errors
+        await _cleanTmpDirectory(pathOfBatchInTmpLocalPath);
+
+        // 3. Prepare data to add to Firestore throught the cloud function call
+        List<Map<String, dynamic>> batchClipData = _subsetClipsToUpload(batch);
+        // for debugging lets print its lenght and the first element
+        print('Batch clip data lenght: ${batchClipData.length}');
+
+        print('First element: ${batchClipData.first}');
+
+        // 3.5 Write batchClipData to firestore, in the processId document
+        // let's start by getting an id for the process
+        String processDocId = FirebaseFirestore.instance
+            .collection(
+                'AudioProcessingTasks/${widget.project['id']}/UploadTasks')
+            .doc()
+            .id;
+        print("Process doc id: $processDocId");
+        // then we write the batchClipData to the firestore
+        try {
+          await _saveBatchClipDataToFirestoreInBatches(
+              batchClipData, processDocId);
+        } catch (e) {
+          print('Firestore error: $e');
+          setState(() {
+            _uploadStatus = 'Firestore Error: $e';
+          });
+          return;
+        }
+
+        // 4. Call the cloud function to uncompress the batch
+        try {
+          bool success =
+              await _callCloudFunctionToUncompressBatchAndSaveDataToFirestore(
+                  firebaseStorageCompressedFilePath, processDocId);
+          if (!success) {
+            throw Exception('Failed to trigger cloud function.');
+          }
+          print('Process doc id: $processDocId');
+          _listenToUploadProcess(processDocId);
+          // now we should listen to the processDocId to know when the process is done
+          // by checking the firestore document located at `AudioProcessingTasks/${projectId}/UploadTasks/${processId}`
+          // lets define the listener function and call it here, it should update the ui with the progress
+          // and the message of the process; those fields are called exactly: progress and message
+          // we should also check if the process is done and if it is done we should update the ui with the result
+          // and if it is an error we should update the ui with the error message
+
+          // 5. Listen to the processDocId to know when the process is done. the return value will be a stream
+// TODO: write function and call it here
+          // 6. Update the UI with the result or error message
+          // for these tasks to be performed we can use this object initialized in class scope
+          // _uploadProgress, but we could also use a streambuilder idk
+        } catch (e) {
+          print('Cloud function error: $e');
+          setState(() {
+            _uploadStatus = 'Cloud Function Error: $e';
+          });
+          return;
+        }
+      }
+    } catch (e) {
+      print('Error: $e');
+      setState(() {
+        _uploadStatus = 'Error: $e';
+      });
+      return;
+    }
+  }
+
+  List<Map<String, dynamic>> _subsetClipsToUpload(
+      List<FileSystemEntity> batch) {
+    //  Create a subset of ClipData objects that correspond to the batch
+    // of files being uploaded. It is a subset of
+    List<ClipData> subset = _clipsToUpload
+        .where((clip) => batch
+            .map((file) => path.basename(file.path))
+            .contains(clip.clipBasename))
+        .toList();
+    // Convert each ClipData object in the subset to a Map
+    return subset.map((clip) => clip.toMap()).toList();
+  }
+
+  void _listenToUploadProcess(String processDocId) {
+    // Assuming `projectId` is available in your class
+    String path =
+        'AudioProcessingTasks/${widget.project['id']}/UploadTasks/$processDocId';
+    var documentReference = FirebaseFirestore.instance.doc(path);
+
+    documentReference.snapshots().listen((snapshot) {
+      if (snapshot.exists) {
+        var data = snapshot.data();
+        setState(() {
+          // Assuming you have a method or logic to update your UI based on the data
+          _uploadStatus =
+              'Progress: ${data?['percentage']}%\n${data?['message']}';
+        });
+
+        // Check if the process is done and update UI accordingly
+        if (data?['done'] == true) {
+          // Update UI to show completion or handle errors
+          if (data?['error'] != null) {
+            _uploadStatus = 'Error: ${data?['error']}';
+          } else {
+            _uploadStatus = 'Upload completed successfully.';
+          }
+        }
+      }
+    }, onError: (error) {
+      // Handle any errors that occur during listening
+      print("Error listening to upload process: $error");
+      setState(() {
+        _uploadStatus = 'Listening Error: $error';
+      });
+    });
+  }
+
+// _saveBatchClipDataToFirestoreInBatches
+  Future<void> _saveBatchClipDataToFirestoreInBatches(
+      List<Map<String, dynamic>> batchClipData, String processDocId) async {
+    FirebaseFirestore db = FirebaseFirestore.instance;
+    const int batchSize =
+        250; // Adjust based on your data size and Firestore limits
+
+    List<List<Map<String, dynamic>>> batches = [];
+    for (int i = 0; i < batchClipData.length; i += batchSize) {
+      batches.add(batchClipData.sublist(
+          i,
+          i + batchSize > batchClipData.length
+              ? batchClipData.length
+              : i + batchSize));
+    }
+
+    // Process each batch
+    for (var batch in batches) {
+      // Start a new batch
+      WriteBatch writeBatch = db.batch();
+
+      // Assuming you have a collection for each batch under the process ID
+      String batchCollectionPath =
+          'AudioProcessingTasks/${widget.project['id']}/UploadTasks/$processDocId/batches';
+      for (var clipData in batch) {
+        DocumentReference docRef = db
+            .collection(batchCollectionPath)
+            .doc(); // Let Firestore generate the doc ID
+        writeBatch.set(docRef, clipData);
+      }
+
+      // Commit the batch
+      await writeBatch.commit().catchError((error) {
+        print("Error writing batch to Firestore: $error");
+      });
+    }
+
+    // print the path of the firestore batches
+
+    print('Firestore batches path: ');
+    print(
+        'AudioProcessingTasks/${widget.project['id']}/UploadTasks/$processDocId/batches');
+  }
+
+  Future<bool> _callCloudFunctionToUncompressBatchAndSaveDataToFirestore(
+    String filePath,
+    String processId,
+  ) async {
+    try {
+      FirebaseFunctions functions = FirebaseFunctions.instance;
+
+      HttpsCallable callable = functions.httpsCallable('processAudioUpload');
+
+      // Call the function and pass parameters as needed
+      final results = await callable.call({
+        'projectId': widget.project['id'],
+        'processId': processId,
+        'filePath': filePath,
+      }).timeout(Duration(seconds: 500));
+
+      // Process results if needed
+      print("Function call succeeded: ${results.data}");
+      // backend does this   return { processDocId: processDocRef.id }
+      // so we shall return the processDocId
+      return results.data['result'];
+    } catch (e) {
+      print("Failed to call function: $e");
+      throw Exception('Failed to trigger cloud function: $e');
+    }
+  }
+
+  Future<void> _cleanTmpDirectory(String filePath) async {
+    final File file = File(filePath);
+
+    if (await file.exists()) {
+      try {
+        await file.delete();
+      } catch (e) {
+        print('Error deleting file: $e');
+        setState(() {
+          _uploadStatus = 'Error deleting file: $e';
+        });
+      }
+    }
+  }
+
+  Future<String> _uploadBatchOfWavFilesToCachedFolder(
+      String filePath, List<FileSystemEntity> batch) async {
+    final File file = File(filePath);
+    final String fileName = path.basename(filePath);
+    final String firebaseStoragePath =
+        'projects/${widget.project['id']}/cache/cachedBatchUploads/$fileName';
+    final ref = FirebaseStorage.instance.ref(firebaseStoragePath);
+
+    var task = ref.putFile(file);
+    task.snapshotEvents.listen((event) {
+      print('Uploading... ${event.bytesTransferred}/${event.totalBytes}');
+      // TODO: Update the UI with the upload progress
+    });
+    await task;
+    return firebaseStoragePath;
+  }
+
+  Future<String> _compressBatchOfWavFiles(List<FileSystemEntity> files) async {
+    // Create a new archive
+    final archive = Archive();
+
+    for (final file in files) {
+      final File fileToCompress = File(file.path);
+      final List<int> bytes = await fileToCompress.readAsBytes();
+      final archiveFile =
+          ArchiveFile(path.basename(file.path), bytes.length, bytes);
+      archive.addFile(archiveFile);
+    }
+
+    // Encode the archive
+    final zipData = ZipEncoder().encode(archive);
+    final tempDir = await getTemporaryDirectory();
+    final compressedFile = File(
+        //timestamp without special characters
+        '${tempDir.path}/batch_timestamp_${DateTime.now().millisecondsSinceEpoch}.zip');
+    if (zipData != null) {
+      await compressedFile.writeAsBytes(zipData);
+    } else {
+      // Handle the unexpected null case appropriately
+      throw Exception('Failed to compress files.');
+    }
+    print('Compressed file: ${compressedFile.path}');
+    return compressedFile.path;
+  }
+
+  List<ClipData> _getClipDataListFromCsvRows(List<List<dynamic>> rows) {
+    if (rows.isEmpty || rows.first.isEmpty) {
+      _updateValidationStatus('Error: CSV is empty or missing headers.');
+      throw Exception('CSV is empty or missing headers.');
+    }
+
+    // Assuming the first row contains headers
+    List<String> headers = rows.first.map((e) => e.toString()).toList();
+    List<ClipData> clips = [];
+
+    // Skip the header row and iterate over each data row
+    for (var row in rows.skip(1)) {
+      Map<String, dynamic> rowData = {};
+      for (int i = 0; i < headers.length; i++) {
+        // Map each column to its corresponding value in the row
+        rowData[headers[i]] = i < row.length ? row[i] : null;
+      }
+      print("here");
+      // Create a ClipData object from rowData
+      ClipData clip = ClipData(
+        selection: _toInt(rowData['Selection']),
+        beginFile: _toString(rowData['Begin File']),
+        beginTime: _toDouble(rowData['Begin Time (s)']),
+        endTime: _toDouble(rowData['End Time (s)']),
+        lowFreq: _toDouble(rowData['Low Freq (Hz)']),
+        highFreq: _toDouble(rowData['High Freq (Hz)']),
+        speciesCode: _toString(rowData['Species Code']) ?? '',
+        commonName: _toString(rowData['Common Name']) ?? '',
+        confidence: _toDouble(rowData['Confidence']) ?? 0.0,
+        clipBasename: _toString(rowData['clip_basename']) ?? '',
+      );
+
+      clips.add(clip);
+    }
+
+    return clips;
+  }
+
+  String? _toString(dynamic value) {
+    if (value == null) return null;
+    return value.toString();
+  }
+
+  double? _toDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString());
+  }
+
+  int? _toInt(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toInt();
+    return int.tryParse(value.toString());
+  }
+
+  void _validateClipData(ClipData clip) {
+    if (clip.beginTime == null || clip.endTime == null) {
+      throw Exception('Clip data is missing beginTime or endTime.');
+    }
+    if (clip.lowFreq == null || clip.highFreq == null) {
+      throw Exception('Clip data is missing lowFreq or highFreq.');
+    }
+    if (clip.speciesCode.isEmpty || clip.commonName.isEmpty) {
+      throw Exception('Clip data is missing speciesCode or commonName.');
+    }
+    if (clip.confidence < 0 || clip.confidence > 1) {
+      throw Exception('Clip data has an invalid confidence value.');
+    }
+    if (clip.clipBasename.isEmpty) {
+      throw Exception('Clip data is missing clipBasename.');
+    }
+    if (!widget.project['labels']['speciesCodes'].contains(clip.speciesCode)) {
+      throw Exception(
+          'Clip data has an invalid speciesCode: ${clip.speciesCode}');
+    }
+    if (!widget.project['labels']['commonNames'].contains(clip.commonName)) {
+      throw Exception(
+          'Clip data has an invalid commonName: ${clip.commonName}');
+    }
+  }
+}
+
+class ValidationSummary {
+  final int totalFiles;
+  final String meanFileSize;
+  final String minFileSize;
+  final String maxFileSize;
+  final double meanDuration;
+  final double minDuration;
+  final double maxDuration;
+  final List<String> ignoredFiles;
+
+  ValidationSummary({
+    required this.totalFiles,
+    required this.meanFileSize,
+    required this.minFileSize,
+    required this.maxFileSize,
+    required this.meanDuration,
+    required this.minDuration,
+    required this.maxDuration,
+    required this.ignoredFiles,
+  });
+}
+// "Selection": "selection",
+// "Begin File": "beginFile",
+// "Begin Time (s)": "beginTime",
+// "End Time (s)": "endTime",
+// "Low Freq (Hz)": "lowFreq",
+// "High Freq (Hz)": "highFreq",
+// "Species Code": "speciesCode",
+// "Common Name": "commonName",
+// "Confidence": "confidence",
+// "clip_basename": "clipBasename",
+
+class ClipData {
+  //not mandatory
+  final int? selection;
+  final String? beginFile;
+  final double? beginTime;
+  final double? endTime;
+  final double? lowFreq;
+  final double? highFreq;
+//mandatory
+  final String speciesCode;
+  final String commonName;
+  final double confidence;
+  final String clipBasename;
+
+  ClipData({
+    this.selection,
+    this.beginFile,
+    this.beginTime,
+    this.endTime,
+    this.lowFreq,
+    this.highFreq,
+    required this.speciesCode,
+    required this.commonName,
+    required this.confidence,
+    required this.clipBasename,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'selection': selection,
+      'beginFile': beginFile,
+      'beginTime': beginTime,
+      'endTime': endTime,
+      'lowFreq': lowFreq,
+      'highFreq': highFreq,
+      'speciesCode': speciesCode,
+      'commonName': commonName,
+      'confidence': confidence,
+      'clipBasename': clipBasename,
+    };
+
+    // create from map that may not have all fields, will fill the rest with null
+  }
+}
+##########
+
+##########
+Filename: settings_screen.dart
+##########
+Content:
+import 'package:flutter/material.dart';
+import 'preferences_service.dart'; // Import the PreferencesService
+import 'package:provider/provider.dart';
+import 'display_name_preference.dart';
+
+class SettingsScreen extends StatefulWidget {
+  @override
+  _SettingsScreenState createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  final PreferencesService _prefs = PreferencesService();
+  String _currentPreference = 'both'; // Default value
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPreference();
+  }
+
+  void _loadPreference() async {
+    final preference = await _prefs.getDisplayNamePreference();
+    setState(() {
+      _currentPreference = preference;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Settings'),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Preferences',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 20),
+            // Text: 'Display names as',
+            Text('Display names',
+                style: Theme.of(context).textTheme.titleMedium),
+            // SizedBox(height: 20),
+            DropdownButton<String>(
+              isExpanded: true,
+              value: _currentPreference,
+              onChanged: (newValue) async {
+                await _prefs.setDisplayNamePreference(newValue!);
+                setState(() {
+                  _currentPreference = newValue;
+                });
+                Provider.of<DisplayNamePreference>(context, listen: false)
+                    .setPreference(newValue);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Preference updated to $newValue'),
+                  ),
+                );
+              },
+              items: [
+                DropdownMenuItem(
+                    value: 'commonName', child: Text('Common Name')),
+                DropdownMenuItem(
+                    value: 'speciesCode', child: Text('Species Code')),
+                DropdownMenuItem(value: 'both', child: Text('Both')),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+##########
+
+##########
+Filename: utils.dart
+##########
+Content:
+import 'package:csv/csv.dart';
+
+class Utils {
+  static String detectEOL(String content) {
+    // Count occurrences of each newline character
+    int crlfCount = '\r\n'.allMatches(content).length; // Count of \r\n
+    int crCount = '\r'.allMatches(content).length -
+        crlfCount; // Adjust for \r\n being counted in \r
+    int lfCount = '\n'.allMatches(content).length -
+        crlfCount; // Adjust for \r\n being counted in \n
+
+    // Determine which newline character is most common
+    if (crlfCount > crCount && crlfCount > lfCount) {
+      return '\r\n'; // Windows style
+    } else if (crCount > lfCount) {
+      return '\r'; // Old Mac style
+    } else {
+      return '\n'; // Unix/Linux/Mac OS X style
+    }
+  }
+
+  static List<List<dynamic>> convertCsvStringToListOfLists(String content) {
+    String eol = detectEOL(content);
+
+    List<List<dynamic>> rowsAsListOfValues =
+        const CsvToListConverter().convert(content, eol: eol);
+
+    // data validation: all rows must have the same number of columns
+    int numColumns = rowsAsListOfValues.first.length;
+    if (rowsAsListOfValues.any((row) => row.length != numColumns)) {
+      throw Exception('All rows must have the same number of columns');
+    }
+
+    return rowsAsListOfValues;
+  }
+}
+##########
+

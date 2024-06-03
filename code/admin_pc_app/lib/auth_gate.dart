@@ -48,7 +48,7 @@ class AuthGate extends StatelessWidget {
                 padding: const EdgeInsets.all(20),
                 child: AspectRatio(
                   aspectRatio: 1,
-                  child: Image.asset('assets/flutterfire_300x.png'),
+                  child: Image.asset('assets/AppIcon.jpg'),
                 ),
               );
             },
@@ -74,7 +74,7 @@ class AuthGate extends StatelessWidget {
                 padding: const EdgeInsets.all(20),
                 child: AspectRatio(
                   aspectRatio: 1,
-                  child: Image.asset('assets/flutterfire_300x.png'),
+                  child: Image.asset('assets/AppIcon.jpg'),
                 ),
               );
             },
