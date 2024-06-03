@@ -22,7 +22,7 @@ cd Euphonia-AI-Reviewer/mobile_app
 3. Install dependencies:
 
 ```bash
-flutter pub get
+flutter create . --platforms=android,ios # alternatively you may only deploy to one of the platforms, e.g. flutter create . --platforms=android
 ```
 
 4. Configure backend services (Google Firebase):
