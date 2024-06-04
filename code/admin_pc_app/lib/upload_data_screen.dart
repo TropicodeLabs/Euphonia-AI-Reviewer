@@ -31,8 +31,9 @@ class UploadDataScreen extends StatefulWidget {
 }
 
 class _UploadDataScreenState extends State<UploadDataScreen> {
-  String? _clipInfoFilePath;
   String? _clipsDirectoryPath;
+  String? csvString;
+  String? csvFileName;
   bool _isUploading = false;
   String _uploadStatus = '';
   String _validationStatus = '';
@@ -76,7 +77,7 @@ class _UploadDataScreenState extends State<UploadDataScreen> {
                   child: Text('Select Clip Information CSV'),
                 ),
                 SizedBox(height: 8),
-                Text(_clipInfoFilePath ?? 'No file selected',
+                Text(csvFileName ?? 'No file selected',
                     textAlign: TextAlign.center),
                 SizedBox(height: 20),
                 Text(
@@ -93,7 +94,7 @@ class _UploadDataScreenState extends State<UploadDataScreen> {
                     textAlign: TextAlign.center),
                 SizedBox(height: 20),
                 ElevatedButton(
-                  onPressed: (_clipInfoFilePath != null &&
+                  onPressed: (csvString != null &&
                           _clipsDirectoryPath != null &&
                           !_isUploading)
                       ? () => _startDataValidation()
@@ -161,10 +162,33 @@ class _UploadDataScreenState extends State<UploadDataScreen> {
   // ManageProjectScreen class to here.
 
   Future<void> _pickClipInfoFile() async {
-    final result = await FilePicker.platform.pickFiles();
+    final result =
+        await FilePicker.platform.pickFiles(allowedExtensions: ['csv']);
     if (result != null) {
       setState(() {
-        _clipInfoFilePath = result.files.single.path;
+        // _clipInfoFilePath = result.files.first.name;
+        // get bytes from the file if the size is less than 10mb
+        if (result.files.single.size! > 10000000) {
+          _updateValidationStatus(
+              'Error: File size exceeds 100MB. Please select a smaller file.');
+          return;
+        }
+        final _clipsInfoCsv = result.files.single.bytes;
+        csvFileName = result.files.single.name;
+
+        // convert bytes to string
+        csvString = String.fromCharCodes(_clipsInfoCsv!);
+        // print all properties of result.files.single
+        print(result.files.single.name);
+        // print(result.files.single.bytes);
+        // try because this will fail but we want all info about the error
+
+        try {
+          print(result.files.single.size);
+          print(result.files.single.extension);
+        } catch (e) {
+          print(e);
+        }
       });
     }
   }
@@ -263,7 +287,7 @@ class _UploadDataScreenState extends State<UploadDataScreen> {
   }
 
   bool _areFilesSelected() {
-    if (_clipInfoFilePath == null || _clipsDirectoryPath == null) {
+    if (csvString == null || _clipsDirectoryPath == null) {
       _updateValidationStatus(
           'Error: Both a clip information file and a clips directory must be selected.');
       return false;
@@ -273,10 +297,14 @@ class _UploadDataScreenState extends State<UploadDataScreen> {
 
   Future<List<List<dynamic>>> _readCsvFile() async {
     // quizas quitarle
-    final File csvFile = File(_clipInfoFilePath!);
-    String csvContent = await csvFile.readAsString();
-    return Utils.convertCsvStringToListOfLists(
-        csvContent); // Ensure this method name is correct.
+    // read bytes from _clipsInfoCsv
+    if (csvString == null) {
+      _updateValidationStatus('Error: No CSV file selected.');
+    }
+    if (csvString!.isEmpty) {
+      _updateValidationStatus('Error: CSV file is empty.');
+    }
+    return Utils.convertCsvStringToListOfLists(csvString!);
   }
 
   Set<String> _extractCsvBasenames(List<List<dynamic>> rows) {
