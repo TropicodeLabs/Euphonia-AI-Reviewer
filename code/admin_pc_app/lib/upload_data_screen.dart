@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
-import 'package:csv/csv.dart';
-import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as path;
-import 'utils.dart';
+import 'dart:typed_data';
 
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -12,7 +10,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 
 import 'dart:math';
-
 import 'package:just_audio/just_audio.dart';
 import 'package:collection/collection.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -20,7 +17,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:archive/archive.dart';
 import 'package:path_provider/path_provider.dart';
 import 'common_drawer.dart';
-import 'dart:typed_data';
 
 class UploadDataScreen extends StatefulWidget {
   final Map<String, dynamic> project;
@@ -55,6 +51,28 @@ class _UploadDataScreenState extends State<UploadDataScreen> {
     if (_selectedFiles == null || _selectedFiles!.isEmpty) {
       print("No files selected.");
       return;
+    }
+
+    // Validate files
+    for (var file in _selectedFiles!) {
+      try {
+        // Check if file size is less than 5MB
+        if (file.size > 5 * 1024 * 1024) {
+          throw Exception('File ${file.name} exceeds the max filesize of 5MB.');
+        }
+
+        // Extract and validate filename data
+        extractDataFromFilename(
+            file.name); // lets receive and print the extracted data
+        final data = extractDataFromFilename(file.name);
+        print(data);
+      } catch (e) {
+        print("Validation failed for file ${file.name}: $e");
+        setState(() {
+          _uploadStatus = 'Validation failed for file ${file.name}: $e';
+        });
+        return;
+      }
     }
 
     setState(() {
@@ -110,6 +128,40 @@ class _UploadDataScreenState extends State<UploadDataScreen> {
       print("Failed to upload file: $fileName, Error: $e");
       throw e;
     });
+  }
+
+  Map<String, String> extractDataFromFilename(String filename) {
+    RegExp regExp = RegExp(r'([^_]+)_([^_]+)_(.*)_([^_]+s)_([^_]+s)\.wav');
+    RegExpMatch? match = regExp.firstMatch(filename);
+
+    if (match != null) {
+      // get float numbers for startTime and endTime, if it fails it will throw an exception
+      // these are strings like this  9.0s, endTime: 12.0s, so we have to remove the 's' and parse it to double
+
+      // this will be a string that we will send to the server, so we need it as a string
+      final startTime = match.group(4)!.replaceAll('s', '');
+      final endTime = match.group(5)!.replaceAll('s', '');
+
+      // validate that these values are numbers: confidence, segmentCount, startTime, endTime
+      try {
+        double.parse(match.group(1)!);
+        double.parse(match.group(2)!);
+        double.parse(startTime);
+        double.parse(endTime);
+      } catch (e) {
+        throw FormatException('Filename does not match the expected pattern.');
+      }
+
+      return {
+        'confidenceLevel': match.group(1)!,
+        'segmentCount': match.group(2)!,
+        'parentAudioName': match.group(3)!,
+        'startTime': startTime,
+        'endTime': endTime,
+      };
+    } else {
+      throw FormatException('Filename does not match the expected pattern.');
+    }
   }
 
   @override
