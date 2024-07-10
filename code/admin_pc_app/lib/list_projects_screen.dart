@@ -2,6 +2,7 @@ import 'package:firebase_ui_auth/firebase_ui_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_utils.dart';
 import 'create_project_screen.dart';
@@ -123,7 +124,6 @@ class _ListProjectsScreenState extends State<ListProjectsScreen> {
         imageUrl == null ||
         imageUrl.isEmpty) {
       // Return an empty Container (or SizedBox) when no image should be displayed
-      print('No image to display for project: ${project['title']}');
       return SizedBox.shrink(); // This takes up no space
     }
 
@@ -138,36 +138,10 @@ class _ListProjectsScreenState extends State<ListProjectsScreen> {
             .grey, // Background color in case the image doesn't fill the area
         height: imageHeight,
         width: imageWidth,
-        child: Image.network(
-          imageUrl,
-          loadingBuilder: (BuildContext context, Widget child,
-              ImageChunkEvent? loadingProgress) {
-            if (loadingProgress == null) {
-              return child;
-            }
-            return Center(
-              child: CircularProgressIndicator(
-                value: loadingProgress.expectedTotalBytes != null
-                    ? loadingProgress.cumulativeBytesLoaded /
-                        (loadingProgress.expectedTotalBytes ?? 1)
-                    : null,
-              ),
-            );
-          },
-          errorBuilder:
-              (BuildContext context, Object error, StackTrace? stackTrace) {
-            print('Error loading image: $error');
-            return Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.error, color: Colors.red, size: 50),
-                Text(
-                  'Error loading image',
-                  style: TextStyle(color: Colors.red),
-                ),
-              ],
-            );
-          },
+        child: CachedNetworkImage(
+          imageUrl: imageUrl,
+          placeholder: (context, url) => CircularProgressIndicator(),
+          errorWidget: (context, url, error) => Icon(Icons.error),
           fit: BoxFit.fitHeight, // Adjust the fit as needed
         ),
       ),

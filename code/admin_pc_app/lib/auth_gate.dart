@@ -12,6 +12,8 @@ import 'firebase_utils.dart';
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
 
+  static bool isProjectLoading = true; // Add this line
+
   Future<List<Map<String, dynamic>>> _fetchUserProjects(String userId) async {
     try {
       final snapshot = await FirebaseFirestore.instance
@@ -94,15 +96,25 @@ class AuthGate extends StatelessWidget {
             future: FirebaseUtils.getProjects(user.uid),
             builder: (context, projects) {
               if (projects.connectionState == ConnectionState.waiting) {
+                if (AuthGate.isProjectLoading) {
+                  // Schedule the sign-out only if still loading after 10 seconds
+                  Future.delayed(const Duration(seconds: 10), () {
+                    if (AuthGate.isProjectLoading) {
+                      FirebaseAuth.instance.signOut();
+                    }
+                  });
+                }
+                print('Loading projects...');
                 return const Center(child: CircularProgressIndicator());
-              } else if (projects.hasError || projects.data == null) {
-                return const Center(child: Text('Error fetching projects'));
-              } else if (projects.data!.isEmpty) {
-                // No projects found, navigate to CreateProjectScreen
-                return const CreateProjectScreen();
               } else {
-                // Projects exist, pass them to ListProjectsScreen
-                return ListProjectsScreen(projects: projects.data!);
+                AuthGate.isProjectLoading = false; // Mark as not loading
+                if (projects.hasError || projects.data == null) {
+                  return const Center(child: Text('Error fetching projects'));
+                } else if (projects.data!.isEmpty) {
+                  return const CreateProjectScreen();
+                } else {
+                  return ListProjectsScreen(projects: projects.data!);
+                }
               }
             },
           );
