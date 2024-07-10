@@ -148,3 +148,5 @@ mobile_app/lib/firebase_options.dart
 # annoying default flutter test file
 code/admin_pc_app/test/widget_test.dart
 code/admin_pc_app/firebase.json
+code/mobile_app/firebase.json
+code/mobile_app/test/widget_test.dart

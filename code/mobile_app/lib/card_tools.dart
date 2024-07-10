@@ -75,7 +75,7 @@ class _CardToolsWidgetState extends State<CardToolsWidget> {
                   context), // This method will show the tags dialog
               child: Text("Tags: $tagsCount"),
               style: TextButton.styleFrom(
-                primary: Colors.white,
+                foregroundColor: Colors.white,
                 backgroundColor: Colors.blue,
               ),
             ),
