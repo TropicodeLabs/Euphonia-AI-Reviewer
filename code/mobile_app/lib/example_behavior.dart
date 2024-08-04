@@ -9,6 +9,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'tags_model.dart';
 import 'card_tools.dart';
 import 'card_mutable_data.dart';
+import 'firebase_utils.dart';
 
 class Example extends StatefulWidget {
   final Map<String, dynamic> project; // Change this to accept a Map
@@ -31,12 +32,14 @@ class _ExamplePageState extends State<Example> {
   bool _isSubmitting = false;
   IconData _feedbackIcon = Icons.hourglass_empty; // Default icon
   bool _toolsVisible = false; // Add this line to control visibility of tools
+  double _verificationProgress = 0.0;
 
   @override
   void initState() {
     super.initState();
     // Assuming 'initializeCards' is a method that creates 3 ExampleCard widgets
     initializeCards();
+    fetchVerificationProgress();
   }
 
   @override
@@ -45,8 +48,19 @@ class _ExamplePageState extends State<Example> {
     super.dispose();
   }
 
+  Future<void> fetchVerificationProgress() async {
+    final progress =
+        await FirebaseUtils.getVerificationProgress(widget.project['id']);
+    setState(() {
+      _verificationProgress = progress;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    // update verification progress
+    fetchVerificationProgress();
+
     return MediaQuery(
       data: MediaQuery.of(context).copyWith(viewInsets: EdgeInsets.zero),
       child: Scaffold(
@@ -77,12 +91,30 @@ class _ExamplePageState extends State<Example> {
         ),
         body: Column(
           children: [
-            // Progress bar
-            LinearProgressIndicator(
-              value: 0.5, // Set the progress value
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
-              backgroundColor: Colors.grey[300],
-              minHeight: MediaQuery.of(context).size.height * 0.03,
+            // Progress bar with text
+            Stack(
+              children: [
+                Container(
+                  width: double.infinity,
+                  height: MediaQuery.of(context).size.height * 0.05,
+                  child: LinearProgressIndicator(
+                    value: _verificationProgress,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                    backgroundColor: Colors.grey[300],
+                  ),
+                ),
+                Positioned.fill(
+                  child: Center(
+                    child: Text(
+                      'Verification progress: ${(_verificationProgress * 100).toStringAsFixed(2)}%',
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
             Expanded(
               child: Stack(

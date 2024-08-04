@@ -130,4 +130,25 @@ class FirebaseUtils {
       });
     }
   }
+
+  static Future<double> getVerificationProgress(String projectId) async {
+    try {
+      //numberOfClips is a field within the project id
+      final projectSnapshot =
+          await _firestore.collection('Projects').doc(projectId).get();
+
+      final numberOfClips = projectSnapshot.get('numberOfClips');
+      final numberOfVerifications =
+          projectSnapshot.get('numberOfVerifications');
+
+      if (numberOfClips == 0) {
+        return 0.0;
+      }
+
+      return numberOfVerifications / numberOfClips;
+    } catch (e) {
+      print("Error getting verification progress: $e");
+      return 0.0;
+    }
+  }
 }
