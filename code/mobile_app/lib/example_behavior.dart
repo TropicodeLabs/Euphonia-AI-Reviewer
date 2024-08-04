@@ -75,39 +75,53 @@ class _ExamplePageState extends State<Example> {
             ),
           ],
         ),
-        body: Stack(
+        body: Column(
           children: [
-            CardSwiper(
-              controller: controller,
-              isLoop: true,
-              cardsCount:
-                  cards.length, // Use the length of uiDeck from the model
-              allowedSwipeDirection: AllowedSwipeDirection.only(
-                right: true,
-                left: true,
-                up: false,
-                down: true,
-              ),
-              onSwipe: (previousIndex, currentIndex, direction) async {
-                return await _onSwipe(previousIndex, currentIndex, direction);
-              },
-              onUndo: _onUndo,
-              numberOfCardsDisplayed: 2,
-              backCardOffset: const Offset(40, 40),
-              padding: const EdgeInsets.all(24.0),
-              cardBuilder: (context, index, horizontalThresholdPercentage,
-                      verticalThresholdPercentage) =>
-                  cards[index], // Use the card from uiDeck in the model
+            // Progress bar
+            LinearProgressIndicator(
+              value: 0.5, // Set the progress value
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+              backgroundColor: Colors.grey[300],
+              minHeight: MediaQuery.of(context).size.height * 0.03,
             ),
-            if (_isSubmitting) //TODO: implement better UI for loading state
-              Positioned(
-                top: 32,
-                right: 32,
-                child: Icon(
-                  _feedbackIcon,
-                  color: Colors.black,
-                ),
+            Expanded(
+              child: Stack(
+                children: [
+                  CardSwiper(
+                    controller: controller,
+                    isLoop: true,
+                    cardsCount:
+                        cards.length, // Use the length of uiDeck from the model
+                    allowedSwipeDirection: AllowedSwipeDirection.only(
+                      right: true,
+                      left: true,
+                      up: false,
+                      down: true,
+                    ),
+                    onSwipe: (previousIndex, currentIndex, direction) async {
+                      return await _onSwipe(
+                          previousIndex, currentIndex, direction);
+                    },
+                    onUndo: _onUndo,
+                    numberOfCardsDisplayed: 2,
+                    backCardOffset: const Offset(40, 40),
+                    padding: const EdgeInsets.all(24.0),
+                    cardBuilder: (context, index, horizontalThresholdPercentage,
+                            verticalThresholdPercentage) =>
+                        cards[index], // Use the card from uiDeck in the model
+                  ),
+                  if (_isSubmitting) //TODO: implement better UI for loading state
+                    Positioned(
+                      top: 32,
+                      right: 32,
+                      child: Icon(
+                        _feedbackIcon,
+                        color: Colors.black,
+                      ),
+                    ),
+                ],
               ),
+            ),
           ],
         ),
       ),

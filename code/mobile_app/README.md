@@ -19,10 +19,12 @@ git clone https://github.com/TropicodeLabs/Euphonia-AI-Reviewer.git
 cd Euphonia-AI-Reviewer/mobile_app
 ```
 
-3. Install dependencies:
+3. Install dependencies and create android/ios directories:
 
 ```bash
 flutter pub get
+
+flutter create .
 ```
 
 4. Configure backend services (Google Firebase):
