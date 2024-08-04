@@ -131,24 +131,60 @@ class FirebaseUtils {
     }
   }
 
-  static Future<double> getVerificationProgress(String projectId) async {
+  static Future<List<double>> getVerificationProgress(String projectId) async {
     try {
       //numberOfClips is a field within the project id
       final projectSnapshot =
           await _firestore.collection('Projects').doc(projectId).get();
 
-      final numberOfClips = projectSnapshot.get('numberOfClips');
+      final numberOfClips = projectSnapshot.get('numberOfClips').toDouble();
       final numberOfVerifications =
-          projectSnapshot.get('numberOfVerifications');
+          projectSnapshot.get('numberOfVerifications').toDouble();
 
       if (numberOfClips == 0) {
-        return 0.0;
+        print("Project has no clips");
+        return [0.0, 0.0];
       }
 
-      return numberOfVerifications / numberOfClips;
+      return [numberOfVerifications, numberOfClips];
     } catch (e) {
       print("Error getting verification progress: $e");
-      return 0.0;
+      return [0.0, 0.0];
+    }
+  }
+
+  static Future<int> getSkippedVerifications(
+      String userId, String projectId) async {
+    try {
+      final skippedVerificationsSnapshot = await _firestore
+          .collection('SkippedClips')
+          .where('projectId', isEqualTo: projectId)
+          .where('userId', isEqualTo: userId)
+          .where('skippedReason', isEqualTo: 'user_skipped')
+          .get();
+
+      return skippedVerificationsSnapshot.size;
+    } catch (e) {
+      print("Error getting skipped verifications: $e");
+      return 0;
+    }
+  }
+
+  //final verificationsByUser = await FirebaseUtils.getVerificationsByUser(
+  // FirebaseAuth.instance.currentUser!.uid, projectId);
+  static Future<int> getVerificationsByUser(
+      String userId, String projectId) async {
+    try {
+      final verificationsByUserSnapshot = await _firestore
+          .collection('Verifications')
+          .where('projectId', isEqualTo: projectId)
+          .where('verifiedBy', isEqualTo: userId)
+          .get();
+
+      return verificationsByUserSnapshot.size;
+    } catch (e) {
+      print("Error getting verifications by user: $e");
+      return 0;
     }
   }
 }

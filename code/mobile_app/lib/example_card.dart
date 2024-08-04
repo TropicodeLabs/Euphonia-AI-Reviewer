@@ -14,8 +14,9 @@ import 'tags_model.dart';
 import 'card_tools.dart';
 import 'spectrogram_display.dart';
 import 'card_mutable_data.dart';
-
+import 'firebase_utils.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class ExampleCard extends StatefulWidget {
   ExampleCandidateModel candidate;
@@ -71,11 +72,8 @@ class ExampleCardState extends State<ExampleCard> {
   bool _isLoadingClips = false;
   String _errorMessage = '';
 
-  List<String> _confidenceLevels = [
-    'Somewhat sure',
-    'Likely',
-    'Completely sure'
-  ];
+  double _numberOfVerificationsInProject = 0;
+  double _numberOfClipsInProject = 0;
 
   @override
   void initState() {
@@ -87,6 +85,28 @@ class ExampleCardState extends State<ExampleCard> {
     refreshData();
     // Load audio and process data as soon as the widget is initialized
     // refreshData();
+  }
+
+  Future<void> setErrorMessage(String userId, String projectId) async {
+    final skippedVerifications =
+        await FirebaseUtils.getSkippedVerifications(userId, projectId);
+    final progress = await FirebaseUtils.getVerificationProgress(projectId);
+    final verificationsByUser = await FirebaseUtils.getVerificationsByUser(
+        FirebaseAuth.instance.currentUser!.uid, projectId);
+
+    _numberOfVerificationsInProject = progress[0];
+    _numberOfClipsInProject = progress[1];
+
+    double _remainingClips =
+        _numberOfClipsInProject - _numberOfVerificationsInProject;
+    print('Skipped verifications: $skippedVerifications');
+
+    setState(() {
+      _errorMessage = "No audio clips available for verification.\n\n"
+          "You have verified $verificationsByUser clips out of $_numberOfClipsInProject total clips in the project.\n\n"
+          "There are $_remainingClips clips remaining in the project to be verified.\n\n"
+          "You have skipped $skippedVerifications clips.";
+    });
   }
 
   @override
@@ -110,71 +130,85 @@ class ExampleCardState extends State<ExampleCard> {
       alignment: Alignment.center,
       child: Stack(
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: SpectrogramDisplay(
-                  key: ValueKey(widget.candidate.audioClipId),
-                  audioGSUri: widget.candidate.audioGSUri,
-                  colormapPreference: _currentColormapPreference,
+          if (_errorMessage.isNotEmpty)
+            Center(
+              child: Container(
+                padding: const EdgeInsets.all(25.0),
+                margin: const EdgeInsets.all(25.0),
+                decoration: BoxDecoration(
+                  color: Colors.blue, // Background color for error
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.black),
                 ),
-              ),
-              Container(
-                height: 150,
-                width: double.infinity,
-                child: Padding(
-                  padding: const EdgeInsets.all(10.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      CardToolsWidget(
-                        isVisible: toolsVisible,
-                        onToggleVisibility: () {
-                          setState(() {
-                            toolsVisible = !toolsVisible;
-                          });
-                        },
-                        candidate: widget.candidate, // Pass the candidate here
-                      ),
-
-                      if (_currentDisplayNamePreference == 'commonName' ||
-                          _currentDisplayNamePreference == 'both')
-                        Text(
-                          widget.candidate.predictedCommonName,
-                          style: const TextStyle(
-                            color: Colors.black,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 20,
-                          ),
-                        ),
-                      // if (if species code in the list of strings _currentDisplayNamePreference, then
-                      // use the species code)
-                      if (_currentDisplayNamePreference == 'speciesCode' ||
-                          _currentDisplayNamePreference == 'both')
-                        Text(
-                          widget.candidate.predictedSpeciesCode,
-                          style: const TextStyle(
-                            color: Color.fromARGB(255, 78, 78, 78),
-                            fontSize: 18,
-                            // italics
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-
-                      const SizedBox(height: 5),
-                      Text(
-                        // widget.candidate.confidence should cast double
-                        'Confidence: ${widget.candidate.confidence.toStringAsFixed(2)}',
-                        style: const TextStyle(color: Colors.grey),
-                      ),
-                    ],
+                child: Text(
+                  _errorMessage,
+                  style: TextStyle(
+                    color: Colors.black, // Text color
+                    // fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
-            ],
-          ),
-          // lets render on top of the tools a button to hide the tools
+            )
+          else
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: SpectrogramDisplay(
+                    key: ValueKey(widget.candidate.audioClipId),
+                    audioGSUri: widget.candidate.audioGSUri,
+                    colormapPreference: _currentColormapPreference,
+                  ),
+                ),
+                Container(
+                  height: 150,
+                  width: double.infinity,
+                  child: Padding(
+                    padding: const EdgeInsets.all(10.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        CardToolsWidget(
+                          isVisible: toolsVisible,
+                          onToggleVisibility: () {
+                            setState(() {
+                              toolsVisible = !toolsVisible;
+                            });
+                          },
+                          candidate:
+                              widget.candidate, // Pass the candidate here
+                        ),
+                        if (_currentDisplayNamePreference == 'commonName' ||
+                            _currentDisplayNamePreference == 'both')
+                          Text(
+                            widget.candidate.predictedCommonName,
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 20,
+                            ),
+                          ),
+                        if (_currentDisplayNamePreference == 'speciesCode' ||
+                            _currentDisplayNamePreference == 'both')
+                          Text(
+                            widget.candidate.predictedSpeciesCode,
+                            style: const TextStyle(
+                              color: Color.fromARGB(255, 78, 78, 78),
+                              fontSize: 18,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        const SizedBox(height: 5),
+                        Text(
+                          'Confidence: ${widget.candidate.confidence.toStringAsFixed(2)}',
+                          style: const TextStyle(color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
         ],
       ),
     );
@@ -191,7 +225,6 @@ class ExampleCardState extends State<ExampleCard> {
 
   void refreshData() async {
     print("Reloading data...");
-    // avoid displaying the wrong info. Should test this
     widget.candidate.updateWith(
       audioClipId: "",
       predictedSpeciesCode: "",
@@ -206,39 +239,36 @@ class ExampleCardState extends State<ExampleCard> {
     if (_isLoadingClips) {
       print(
           "Attempted to load clips while already loading. Operation skipped.");
-      return null; // Prevent multiple simultaneous loads
+      return;
     }
 
     setState(() {
       _isLoadingClips = true;
+      _errorMessage = ''; // Reset error message
     });
 
     print("Loading new candidate data...");
 
     try {
-      // Logic to load new data and create a new candidate instance
       final newCandidate = await loadNewCandidateData(widget.projectId);
       if (newCandidate == null) {
         // Handle error, possibly showing an error indicator
-        print("L223 Error loading new candidate: $newCandidate");
-        widget.candidate = ExampleCandidateModel(
-          audioClipId: "...",
-          predictedSpeciesCode: "...",
-          predictedCommonName: "...",
-          confidence: 0.0,
-          audioGSUri: "...",
-        );
+        print("Error loading new candidate: $newCandidate");
+        setState(() {
+          setErrorMessage(
+              FirebaseAuth.instance.currentUser!.uid, widget.projectId);
+        });
         return;
       }
       setState(() {
         widget.candidate = newCandidate; // Replace with the new instance
         print("New candidate loaded: ${widget.candidate.audioClipId}");
-        // Stop loading indicator
       });
     } catch (error) {
       print("Error loading new candidate: $error");
       setState(() {
-        // Handle error, possibly showing an error indicator
+        setErrorMessage(
+            FirebaseAuth.instance.currentUser!.uid, widget.projectId);
       });
     } finally {
       setState(() {
@@ -258,7 +288,8 @@ class ExampleCardState extends State<ExampleCard> {
 
       if (data.isEmpty) {
         print("No audio clips found.");
-        _errorMessage = "No audio clips found.";
+        setErrorMessage(
+            FirebaseAuth.instance.currentUser!.uid, widget.projectId);
         return null;
       }
 
@@ -282,7 +313,7 @@ class ExampleCardState extends State<ExampleCard> {
       return _candidate;
     } catch (e) {
       print("Error fetching audio clips: $e");
-      _errorMessage = "Error fetching audio clips: $e";
+      setErrorMessage(FirebaseAuth.instance.currentUser!.uid, widget.projectId);
     }
 
     return null;

@@ -10,6 +10,7 @@ import 'tags_model.dart';
 import 'card_tools.dart';
 import 'card_mutable_data.dart';
 import 'firebase_utils.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class Example extends StatefulWidget {
   final Map<String, dynamic> project; // Change this to accept a Map
@@ -31,15 +32,18 @@ class _ExamplePageState extends State<Example> {
   // Example state variable in your widget
   bool _isSubmitting = false;
   IconData _feedbackIcon = Icons.hourglass_empty; // Default icon
-  bool _toolsVisible = false; // Add this line to control visibility of tools
+
+  double _numberOfVerificationsInProject = 0;
+  double _numberOfClipsInProject = 0;
   double _verificationProgress = 0.0;
+  bool _disableCardSwiperInteraction = false;
 
   @override
   void initState() {
     super.initState();
-    // Assuming 'initializeCards' is a method that creates 3 ExampleCard widgets
     initializeCards();
     fetchVerificationProgress();
+    _disableCardSwiperInteraction = false;
   }
 
   @override
@@ -52,15 +56,20 @@ class _ExamplePageState extends State<Example> {
     final progress =
         await FirebaseUtils.getVerificationProgress(widget.project['id']);
     setState(() {
-      _verificationProgress = progress;
+      _numberOfVerificationsInProject = progress[0];
+      _numberOfClipsInProject = progress[1];
+      if (_numberOfClipsInProject == 0) {
+        _verificationProgress = 0.0;
+      }
+      _verificationProgress =
+          _numberOfVerificationsInProject / _numberOfClipsInProject;
+      print(
+          'Verification progress, n of verifications and n of clips: $_verificationProgress, $_numberOfVerificationsInProject, $_numberOfClipsInProject');
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    // update verification progress
-    fetchVerificationProgress();
-
     return MediaQuery(
       data: MediaQuery.of(context).copyWith(viewInsets: EdgeInsets.zero),
       child: Scaffold(
@@ -116,14 +125,15 @@ class _ExamplePageState extends State<Example> {
                 ),
               ],
             ),
+
             Expanded(
               child: Stack(
                 children: [
                   CardSwiper(
+                    isDisabled: _disableCardSwiperInteraction,
                     controller: controller,
                     isLoop: true,
-                    cardsCount:
-                        cards.length, // Use the length of uiDeck from the model
+                    cardsCount: cards.length,
                     allowedSwipeDirection: AllowedSwipeDirection.only(
                       right: true,
                       left: true,
@@ -140,9 +150,9 @@ class _ExamplePageState extends State<Example> {
                     padding: const EdgeInsets.all(24.0),
                     cardBuilder: (context, index, horizontalThresholdPercentage,
                             verticalThresholdPercentage) =>
-                        cards[index], // Use the card from uiDeck in the model
+                        cards[index],
                   ),
-                  if (_isSubmitting) //TODO: implement better UI for loading state
+                  if (_isSubmitting)
                     Positioned(
                       top: 32,
                       right: 32,
@@ -199,6 +209,21 @@ class _ExamplePageState extends State<Example> {
         .toList();
     String userConfidence = mutableData.userConfidence;
     mutableData.clearTags(); // Clear tags after submission
+
+    // if current candidate is null, return false and
+    // make the card swiper not interactable
+    print("audioClipId: ${cards[previousIndex]!.candidate.audioClipId}");
+    if (cards[previousIndex]!.candidate.audioClipId == "...") {
+      print('candidate is null');
+      setState(() {
+        _disableCardSwiperInteraction = true;
+      });
+      // also stop the submission animation
+      setState(() {
+        _isSubmitting = false;
+      });
+      return false;
+    }
 
     if (direction == CardSwiperDirection.left) {
       final labels = widget.project['labels'] as Map<String, dynamic>;
@@ -348,6 +373,8 @@ class _ExamplePageState extends State<Example> {
       print('_submitLabelConfirmationSkipped Error: $e');
       // Handle errors
     }
+    // update verification progress
+    fetchVerificationProgress();
   }
 
   Future<void> _submitLabelConfirmationUsingPrediction(
@@ -382,6 +409,8 @@ class _ExamplePageState extends State<Example> {
       print('_submitLabelConfirmationUsingPrediction Error: $e');
       // Handle errors
     }
+    // update verification progress
+    fetchVerificationProgress();
   }
 
   Future<void> _submitLabelConfirmation(
@@ -429,6 +458,8 @@ class _ExamplePageState extends State<Example> {
       // Handle errors, e.g., show an error message
       print('_submitLabelConfirmation Error: $e');
     }
+    // update verification progress
+    fetchVerificationProgress();
   }
 
   void _showHelpDialog() {
