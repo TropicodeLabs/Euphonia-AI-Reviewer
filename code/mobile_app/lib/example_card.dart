@@ -140,74 +140,92 @@ class ExampleCardState extends State<ExampleCard> {
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: Colors.black),
                 ),
-                child: Text(
-                  _errorMessage,
-                  style: TextStyle(
-                    color: Colors.black, // Text color
-                    // fontWeight: FontWeight.bold,
+                child: SingleChildScrollView(
+                  child: Text(
+                    _errorMessage,
+                    style: TextStyle(
+                      color: Colors.black, // Text color
+                      // fontWeight: FontWeight.bold,
+                      fontSize: 20,
+                    ),
                   ),
                 ),
               ),
             )
           else
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: SpectrogramDisplay(
-                    key: ValueKey(widget.candidate.audioClipId),
-                    audioGSUri: widget.candidate.audioGSUri,
-                    colormapPreference: _currentColormapPreference,
-                  ),
-                ),
-                Container(
-                  height: 150,
-                  width: double.infinity,
-                  child: Padding(
-                    padding: const EdgeInsets.all(10.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        CardToolsWidget(
-                          isVisible: toolsVisible,
-                          onToggleVisibility: () {
-                            setState(() {
-                              toolsVisible = !toolsVisible;
-                            });
-                          },
-                          candidate:
-                              widget.candidate, // Pass the candidate here
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final availableHeight = constraints.maxHeight;
+                final spectrogramHeight = availableHeight * 0.75;
+                final toolsHeight = availableHeight * 0.25;
+
+                return SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        height: spectrogramHeight,
+                        child: SpectrogramDisplay(
+                          key: ValueKey(widget.candidate.audioClipId),
+                          audioGSUri: widget.candidate.audioGSUri,
+                          colormapPreference: _currentColormapPreference,
                         ),
-                        if (_currentDisplayNamePreference == 'commonName' ||
-                            _currentDisplayNamePreference == 'both')
-                          Text(
-                            widget.candidate.predictedCommonName,
-                            style: const TextStyle(
-                              color: Colors.black,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 20,
+                      ),
+                      Container(
+                        height: toolsHeight,
+                        width: double.infinity,
+                        child: Padding(
+                          padding: const EdgeInsets.all(10.0),
+                          child: SingleChildScrollView(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                CardToolsWidget(
+                                  isVisible: toolsVisible,
+                                  onToggleVisibility: () {
+                                    setState(() {
+                                      toolsVisible = !toolsVisible;
+                                    });
+                                  },
+                                  candidate: widget
+                                      .candidate, // Pass the candidate here
+                                ),
+                                if (_currentDisplayNamePreference ==
+                                        'commonName' ||
+                                    _currentDisplayNamePreference == 'both')
+                                  Text(
+                                    widget.candidate.predictedCommonName,
+                                    style: const TextStyle(
+                                      color: Colors.black,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 20,
+                                    ),
+                                  ),
+                                if (_currentDisplayNamePreference ==
+                                        'speciesCode' ||
+                                    _currentDisplayNamePreference == 'both')
+                                  Text(
+                                    widget.candidate.predictedSpeciesCode,
+                                    style: const TextStyle(
+                                      color: Color.fromARGB(255, 78, 78, 78),
+                                      fontSize: 18,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                const SizedBox(height: 5),
+                                Text(
+                                  'Confidence: ${widget.candidate.confidence.toStringAsFixed(2)}',
+                                  style: const TextStyle(color: Colors.grey),
+                                ),
+                              ],
                             ),
                           ),
-                        if (_currentDisplayNamePreference == 'speciesCode' ||
-                            _currentDisplayNamePreference == 'both')
-                          Text(
-                            widget.candidate.predictedSpeciesCode,
-                            style: const TextStyle(
-                              color: Color.fromARGB(255, 78, 78, 78),
-                              fontSize: 18,
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                        const SizedBox(height: 5),
-                        Text(
-                          'Confidence: ${widget.candidate.confidence.toStringAsFixed(2)}',
-                          style: const TextStyle(color: Colors.grey),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
+                );
+              },
             ),
         ],
       ),
