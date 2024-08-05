@@ -26,9 +26,10 @@ flutter pub get
 
 flutter create .
 ```
+
 To avoid having to replace the default package name com.example.yourappname, you could instead do
 
-```
+```bash
 cd ..
 
 mv mobile_app yourappname
@@ -36,7 +37,13 @@ mv mobile_app yourappname
 flutter create yourappname --org com.yourcompany
 ```
 
-4. Configure backend services (Google Firebase):
+4. Configure app icon using [flutter_launcher_icons](https://pub.dev/packages/flutter_launcher_icons):
+
+```bash
+flutter pub run flutter_launcher_icons
+```
+
+5. Configure backend services (Google Firebase):
 
 Make sure you already have a Firebase project set up. If not, follow these general steps, and refer to this [link](https://firebase.google.com/docs/flutter/setup) for more detailed information.
 
@@ -55,46 +62,16 @@ Run the following command to configure Firebase services :
 flutterfire configure
 ```
 
-5. Prepare build
+6. Prepare build
 
 In Android:
 
-Modify the `android/build.gradle` file to include the Google Services plugin:
+Modify the android app name in `android/app/src/main/AndroidManifest.xml`:
 
-```gradle 
-
-buildscript {
-        ext.kotlin_version = '1.7.10'
-        repositories {
-            google()
-            mavenCentral()
-        }
-        dependencies {
-            classpath 'com.android.tools.build:gradle:7.4.2'
-            // START: FlutterFire Configuration
-            classpath 'com.google.gms:google-services:4.3.12'
-            // END: FlutterFire Configuration
-            classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-        }
-    } 
-    
-```
-
-
-Modify the `android/app/build.gradle` file to use your applicationId and the minimum Android SDK version required by Flutter. In this case the applicationId is `com.example.euphonia_ai_reviewer`:
-
-```gradle
-
-... REST OF THE FILE ...
-
-defaultConfig {
-    applicationId "com.example.euphonia_ai_reviewer"
-    minSdkVersion 21
+```xml
+<application
+    android:label="Euphonia AI Reviewer"
     ... REST OF THE FILE ...
-}
-
-... REST OF THE FILE ...
-
 ```
 
 # Notes on cybersecurity and privacy:
