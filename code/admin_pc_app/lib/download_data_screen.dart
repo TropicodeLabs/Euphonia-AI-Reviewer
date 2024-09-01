@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_functions/cloud_functions.dart';
-import 'package:path_provider/path_provider.dart';
-import 'dart:io';
-import 'package:csv/csv.dart'; // Add csv package in pubspec.yaml
+import 'package:file_saver/file_saver.dart';
+import 'dart:typed_data';
+import 'package:csv/csv.dart';
 
 class DownloadDataScreen extends StatefulWidget {
   final Map<String, dynamic> project;
@@ -18,7 +18,7 @@ class _DownloadDataScreenState extends State<DownloadDataScreen> {
   bool _isDownloadReady = false;
   String _downloadStatus = 'Ready to prepare download';
   String _messages = "";
-  String? _csvFilePath;
+  Uint8List? _csvData;
 
   Future<void> _startDownloadProcess() async {
     setState(() {
@@ -47,17 +47,13 @@ class _DownloadDataScreenState extends State<DownloadDataScreen> {
 
       String csv = const ListToCsvConverter().convert(rows);
 
-      // Save the CSV to a local file
-      final directory = await getApplicationDocumentsDirectory();
-      final path = '${directory.path}/downloaded_data.csv';
-      final file = File(path);
-      await file.writeAsString(csv);
+      // Convert CSV string to bytes
+      _csvData = Uint8List.fromList(csv.codeUnits);
 
       setState(() {
         _isPreparingDownload = false;
         _isDownloadReady = true;
         _downloadStatus = 'Download is ready';
-        _csvFilePath = path;
       });
     } catch (e) {
       setState(() {
@@ -68,22 +64,26 @@ class _DownloadDataScreenState extends State<DownloadDataScreen> {
   }
 
   Future<void> _downloadFile() async {
-    if (_csvFilePath != null) {
-      final file = File(_csvFilePath!);
-
-      // Check if file exists and proceed to share/download
-      if (await file.exists()) {
-        // Implement the logic for sharing or downloading the file.
-        // For example, you can use a plugin like `share_plus` to share the file.
-        // You can also use other methods depending on the platform to allow the user to save the file.
-      } else {
+    if (_csvData != null) {
+      try {
+        await FileSaver.instance.saveFile(
+          // add the current time to the file name in text like this: 'verifications_2022-01-01T12:00:00.csv' including the time
+          name:
+              'verifications_${DateTime.now().toIso8601String().replaceAll(':', '-')}',
+          bytes: _csvData!,
+          ext: "csv",
+        );
         setState(() {
-          _downloadStatus = 'CSV file does not exist!';
+          _downloadStatus = 'CSV file downloaded successfully!';
+        });
+      } catch (e) {
+        setState(() {
+          _downloadStatus = 'Failed to download CSV file: $e';
         });
       }
     } else {
       setState(() {
-        _downloadStatus = 'CSV file path is null!';
+        _downloadStatus = 'CSV data is null!';
       });
     }
   }
