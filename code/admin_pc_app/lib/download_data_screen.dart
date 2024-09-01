@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_functions/cloud_functions.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:file_picker/file_picker.dart';
 import 'dart:io';
+import 'package:csv/csv.dart'; // Add csv package in pubspec.yaml
 
 class DownloadDataScreen extends StatefulWidget {
   final Map<String, dynamic> project;
@@ -19,8 +17,8 @@ class _DownloadDataScreenState extends State<DownloadDataScreen> {
   bool _isPreparingDownload = false;
   bool _isDownloadReady = false;
   String _downloadStatus = 'Ready to prepare download';
-  String? _zipGSUri;
   String _messages = "";
+  String? _csvFilePath;
 
   Future<void> _startDownloadProcess() async {
     setState(() {
@@ -29,11 +27,38 @@ class _DownloadDataScreenState extends State<DownloadDataScreen> {
     });
 
     final functions = FirebaseFunctions.instance;
-    final callable = functions.httpsCallable('processAudioDownload');
+    final callable = functions.httpsCallable('processVerificationsDownload');
     try {
       final result = await callable.call({'projectId': widget.project['id']});
-      print("Download process started: ${result.data['processDocId']}");
-      _listenToDownloadProcess(result.data['processDocId']);
+      final data = result.data['data'];
+
+      // Parse the data to CSV
+      List<List<dynamic>> rows = [];
+
+      if (data.isNotEmpty) {
+        // Add the headers
+        rows.add(data[0].keys.toList());
+
+        // Add the rows
+        for (var row in data) {
+          rows.add(row.values.toList());
+        }
+      }
+
+      String csv = const ListToCsvConverter().convert(rows);
+
+      // Save the CSV to a local file
+      final directory = await getApplicationDocumentsDirectory();
+      final path = '${directory.path}/downloaded_data.csv';
+      final file = File(path);
+      await file.writeAsString(csv);
+
+      setState(() {
+        _isPreparingDownload = false;
+        _isDownloadReady = true;
+        _downloadStatus = 'Download is ready';
+        _csvFilePath = path;
+      });
     } catch (e) {
       setState(() {
         _isPreparingDownload = false;
@@ -42,87 +67,24 @@ class _DownloadDataScreenState extends State<DownloadDataScreen> {
     }
   }
 
-  void _listenToDownloadProcess(String processDocId) {
-    final processDocRef = FirebaseFirestore.instance
-        .collection(
-            'AudioProcessingTasks/${widget.project['id']}/DownloadTasks')
-        .doc(processDocId);
-
-    processDocRef.snapshots().listen(
-      (snapshot) {
-        if (snapshot.exists) {
-          final data = snapshot.data();
-          setState(() {
-            _downloadStatus =
-                'Download preparation progress: ${data?['percentage']}%';
-            _messages = data?['messages'] ?? "";
-          });
-
-          if (data?['status'] == 'completed') {
-            _zipGSUri = data?['zipGSUri'];
-            _downloadStatus = 'Download ready. Tap to download.';
-            _isPreparingDownload = false;
-            _isDownloadReady = true;
-          } else if (data?['status'] == 'failed') {
-            _downloadStatus = 'Download failed: ${data?['message']}';
-            _isPreparingDownload = false;
-          }
-        }
-      },
-      onError: (error) => setState(() {
-        _downloadStatus = 'Error listening to download process: $error';
-        _isPreparingDownload = false;
-      }),
-    );
-  }
-
   Future<void> _downloadFile() async {
-    if (_zipGSUri != null) {
-      final String? selectedDirectory =
-          await FilePicker.platform.getDirectoryPath();
+    if (_csvFilePath != null) {
+      final file = File(_csvFilePath!);
 
-      if (selectedDirectory != null) {
-        // Convert the GS URI to a reference
-        FirebaseStorage storage = FirebaseStorage.instance;
-        Reference ref = storage.ref().child(_zipGSUri!);
-
-        String basename = _zipGSUri!.split('/').last;
-
-        print('zipGSUri: $_zipGSUri');
-
-        print('Downloading file to $selectedDirectory/downloaded_file.zip');
-
-        try {
-          final bytes = await ref.getData();
-          if (bytes != null) {
-            File file = File('$selectedDirectory/$basename');
-            await file.writeAsBytes(bytes);
-            setState(() {
-              _downloadStatus = 'File downloaded successfully to ${file.path}';
-            });
-          } else {
-            setState(() {
-              _downloadStatus = 'Failed to download file: File is empty';
-            });
-          }
-        } catch (e) {
-          print('Failed to download file: $e');
-          if (e is FirebaseException) {
-            print('Details: ${e.message}');
-            setState(() {
-              _downloadStatus = 'Failed to download file: ${e.message}';
-            });
-          } else {
-            setState(() {
-              _downloadStatus = 'Failed to download file: Unknown error';
-            });
-          }
-        }
+      // Check if file exists and proceed to share/download
+      if (await file.exists()) {
+        // Implement the logic for sharing or downloading the file.
+        // For example, you can use a plugin like `share_plus` to share the file.
+        // You can also use other methods depending on the platform to allow the user to save the file.
       } else {
         setState(() {
-          _downloadStatus = 'Download cancelled.';
+          _downloadStatus = 'CSV file does not exist!';
         });
       }
+    } else {
+      setState(() {
+        _downloadStatus = 'CSV file path is null!';
+      });
     }
   }
 
@@ -152,7 +114,7 @@ class _DownloadDataScreenState extends State<DownloadDataScreen> {
               if (_isDownloadReady)
                 ElevatedButton(
                   onPressed: _downloadFile,
-                  child: Text('Start Download'),
+                  child: Text('Download CSV File'),
                 ),
             ],
           ),
