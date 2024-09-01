@@ -39,14 +39,14 @@ class MyApp extends StatelessWidget {
                 return ListProjectsScreen(projects: projects);
               },
             );
-          case '/upload_data_screen':
-            final project =
-                settings.arguments as Map<String, dynamic>; // Cast to Map
-            return MaterialPageRoute(
-              builder: (context) {
-                return UploadDataScreen(project: project);
-              },
-            );
+          // case '/upload_data_screen':
+          //   final project =
+          //       settings.arguments as Map<String, dynamic>; // Cast to Map
+          //   return MaterialPageRoute(
+          //     builder: (context) {
+          //       return UploadDataScreen(project: project);
+          //     },
+          //   );
           case '/data_dashboard_screen':
             final project = settings.arguments as Map<String, dynamic>;
             return MaterialPageRoute(

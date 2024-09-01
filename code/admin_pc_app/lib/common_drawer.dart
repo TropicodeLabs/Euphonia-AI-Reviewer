@@ -28,18 +28,18 @@ class CommonDrawer extends StatelessWidget {
                   arguments: project);
             },
           ),
-          ListTile(
-            leading: Icon(Icons.upload_file),
-            title: Text('Upload'),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => UploadDataScreen(project: project),
-                ),
-              );
-            },
-          ),
+          // ListTile(
+          //   leading: Icon(Icons.upload_file),
+          //   title: Text('Upload'),
+          //   onTap: () {
+          //     Navigator.push(
+          //       context,
+          //       MaterialPageRoute(
+          //         builder: (context) => UploadDataScreen(project: project),
+          //       ),
+          //     );
+          //   },
+          // ),
           ListTile(
             leading: Icon(Icons.download),
             title: Text('Download'),
