@@ -150,3 +150,5 @@ code/admin_pc_app/test/widget_test.dart
 code/admin_pc_app/firebase.json
 code/mobile_app/firebase.json
 code/mobile_app/test/widget_test.dart
+code/admin_pc_app/.firebaserc
+code/admin_pc_app/.firebase/hosting.YnVpbGQvd2Vi.cache

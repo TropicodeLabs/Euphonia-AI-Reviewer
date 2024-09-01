@@ -8,6 +8,7 @@ import 'create_project_screen.dart';
 
 import 'list_projects_screen.dart';
 import 'firebase_utils.dart';
+import 'not_a_projectadmin_screen.dart';
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
@@ -111,7 +112,9 @@ class AuthGate extends StatelessWidget {
                 if (projects.hasError || projects.data == null) {
                   return const Center(child: Text('Error fetching projects'));
                 } else if (projects.data!.isEmpty) {
-                  return const CreateProjectScreen();
+                  // return const CreateProjectScreen();
+                  // instead, if it is null then return to a screen that says "No projects found, create a new project"
+                  return NotAProjectAdminScreen();
                 } else {
                   return ListProjectsScreen(projects: projects.data!);
                 }
