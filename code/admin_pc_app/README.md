@@ -65,7 +65,7 @@ flutter run -d chrome --web-renderer html
 Follow the steps in the [official documentation](https://docs.flutter.dev/deployment/macos) to build the app for release.
 
 ```bash
-flutter build web
+flutter build web --web-renderer html --release
 ```
 
 ### 9. Deploy the app:

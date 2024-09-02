@@ -46,6 +46,7 @@ class AuthGate extends StatelessWidget {
             providers: [
               EmailAuthProvider(),
             ],
+            showAuthActionSwitch: false,
             headerBuilder: (context, constraints, shrinkOffset) {
               return Padding(
                 padding: const EdgeInsets.all(20),
@@ -59,8 +60,8 @@ class AuthGate extends StatelessWidget {
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8.0),
                 child: action == AuthAction.signIn
-                    ? const Text('Welcome to FlutterFire, please sign in!')
-                    : const Text('Welcome to Flutterfire, please sign up!'),
+                    ? const Text('Welcome to Euphonia, please sign in!')
+                    : const Text('Welcome to Euphonia, please sign up!'),
               );
             },
             footerBuilder: (context, action) {
