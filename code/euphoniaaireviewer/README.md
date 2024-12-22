@@ -34,7 +34,7 @@ cd ..
 
 mv mobile_app yourappname
 
-flutter create yourappname --org com.yourcompany
+flutter create euphoniaaireviewer --org com.euphoniaaireviewer
 ```
 
 4. Configure app icon using [flutter_launcher_icons](https://pub.dev/packages/flutter_launcher_icons):

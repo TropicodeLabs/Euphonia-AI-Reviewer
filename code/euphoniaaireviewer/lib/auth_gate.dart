@@ -3,6 +3,7 @@ import 'package:firebase_ui_auth/firebase_ui_auth.dart';
 import 'package:flutter/material.dart';
 import 'firebase_utils.dart';
 import 'home.dart';
+import 'mode_selection_screen.dart'; // Import the new ModeSelectionScreen
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
@@ -63,7 +64,7 @@ class AuthGate extends StatelessWidget {
           return const Text('Unexpected error. Please try to log in again.');
         }
         FirebaseUtils.addUser(user); // snapshot.data is the User
-        return const HomeScreen();
+        return const ModeSelectionScreen(); // Navigate to the ModeSelectionScreen
       },
     );
   }
