@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'dart:math';
 import 'dart:typed_data';
@@ -36,15 +37,37 @@ class SpectrogramWidget extends StatelessWidget {
 
     return GestureDetector(
       onTap: () async {
+        print("🔍 SpectrogramWidget: Audio tap detected");
+        print("🔍 SpectrogramWidget: localAudioPath: $localAudioPath");
+        print("🔍 SpectrogramWidget: audioBytes length: ${audioBytes?.length ?? 'null'}");
+        
         AudioPlayer player = AudioPlayer();
 
-        if (Platform.isIOS) {
-          await player.play(DeviceFileSource(localAudioPath!));
+        try {
+          if (kIsWeb) {
+            print("🔍 SpectrogramWidget: Playing on Web using UrlSource");
+            print("🔍 SpectrogramWidget: URL: $localAudioPath");
+            await player.play(UrlSource(localAudioPath!));
+          } else if (Platform.isIOS) {
+            print("🔍 SpectrogramWidget: Playing on iOS using DeviceFileSource");
+            await player.play(DeviceFileSource(localAudioPath!));
+          } else if (Platform.isAndroid) {
+            print("🔍 SpectrogramWidget: Playing on Android using BytesSource");
+            await player.play(BytesSource(audioBytes!));
+          }
+          print("🔍 SpectrogramWidget: Audio playback started successfully");
+        } catch (e) {
+          print("🔍 SpectrogramWidget: Error playing audio: $e");
+          print("🔍 SpectrogramWidget: Error type: ${e.runtimeType}");
+          
+          // Show user-friendly error for CORS issues
+          if (e.toString().contains('CORS') || e.toString().contains('cors') || 
+              e.toString().contains('cross-origin') || e.toString().contains('Format error')) {
+            print("🔍 SpectrogramWidget: This appears to be a CORS/format issue");
+            print("🔍 SpectrogramWidget: Run with: flutter run -d chrome --web-browser-flag \"--disable-web-security\"");
+            print("🔍 SpectrogramWidget: For production, configure Firebase Storage CORS");
+          }
         }
-        if (Platform.isAndroid) {
-          await player.play(BytesSource(audioBytes!));
-        }
-        ;
       },
       child: Container(
         width: width,

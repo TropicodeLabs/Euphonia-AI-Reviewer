@@ -1,10 +1,8 @@
-import 'dart:io';
+// spectrogram_display.dart 
+// PWA-only version - no file downloads
 import 'package:flutter/material.dart';
-import 'audio_processing.dart'; // Assuming this contains your audio processing logic
-import 'spectrogram_widget.dart'; // Your existing widget for displaying the spectrogram
-import 'package:firebase_storage/firebase_storage.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as p;
+import 'web_audio_processing.dart';
+import 'spectrogram_widget.dart';
 import 'preferences_model.dart';
 import 'package:provider/provider.dart';
 
@@ -32,9 +30,16 @@ class _SpectrogramDisplayState extends State<SpectrogramDisplay> {
   }
 
   Future<List> loadAndProcessAudio(String audioGSUri) async {
-    // Logic to download audio file and process it for spectrogram data
-    File audioFile = await downloadAudioFile(audioGSUri);
-    return AudioProcessing.loadAndProcessAudioFromFile(audioFile);
+    print("🔍 SpectrogramDisplay: loadAndProcessAudio() called with: $audioGSUri");
+    try {
+      // For PWA, use the web-compatible audio processing
+      final result = await WebAudioProcessing.loadAndProcessAudioFromUrl(audioGSUri);
+      print("🔍 SpectrogramDisplay: loadAndProcessAudio() SUCCESS - result length: ${result.length}");
+      return result;
+    } catch (e) {
+      print("🔍 SpectrogramDisplay: loadAndProcessAudio() ERROR: $e");
+      rethrow;
+    }
   }
 
   void _loadSpectrogramData() {
@@ -76,37 +81,5 @@ class _SpectrogramDisplayState extends State<SpectrogramDisplay> {
         return CircularProgressIndicator(); // Show loading indicator while waiting
       },
     );
-  }
-
-  Future<File> downloadAudioFile(String audioGSUri) async {
-    final RegExp regExp = RegExp(r'gs://(.*?)/(.*)');
-    final match = regExp.firstMatch(audioGSUri);
-
-    if (match != null) {
-      final String bucketName = match.group(1)!;
-      final String filePath = match.group(2)!;
-
-      final ref = FirebaseStorage.instanceFor(bucket: 'gs://$bucketName')
-          .ref()
-          .child(filePath);
-
-      // Use the path_provider plugin to get a temporary directory
-      final Directory tempDir = await getTemporaryDirectory();
-      // Construct the full path for the file to ensure directories are created
-      // for the localpath lets only use the basename in that tempdir
-
-      final String localFilePath = p.join(tempDir.path, p.basename(filePath));
-
-      // Create the directory where the file will be saved
-      final File file = File(localFilePath);
-      await file.parent.create(recursive: true); // Ensure the directory exists
-
-      // Download the file
-      await ref.writeToFile(file);
-
-      return file;
-    } else {
-      throw Exception('Invalid GS URI');
-    }
   }
 }

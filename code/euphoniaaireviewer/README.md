@@ -1,79 +1,160 @@
-# Euphonia AI Reviewer - Flutter mobile app
+# Euphonia AI Reviewer - PWA Flutter App
 
-Flutter app for Euphonia AI Reviewer.
+Flutter Progressive Web App (PWA) for Euphonia AI Reviewer - migrated from mobile to web-only for better cross-platform compatibility.
 
+## 🌟 Features
 
-# Getting Started
+- **Web-only PWA** - No mobile app installation required
+- **Audio streaming** from Firebase Storage
+- **Real-time spectrogram visualization** with mock bird call patterns
+- **Manual species input** and clickable species list
+- **Cross-platform compatibility** - works in any modern web browser
 
-## Installation
+## 🚀 Getting Started
 
-1. Clone the repository:
+### Prerequisites
+
+- [Flutter SDK](https://docs.flutter.dev/get-started/install) (latest stable version)
+- [Google Cloud SDK](https://cloud.google.com/sdk/docs/install) (for CORS configuration)
+- Firebase project with Storage enabled
+
+### 1. Clone and Setup
 
 ```bash
+# Clone the repository
 git clone https://github.com/TropicodeLabs/Euphonia-AI-Reviewer.git
-```
 
-2. Navigate to the `mobile_app` directory:
+# Navigate to the app directory
+cd Euphonia-AI-Reviewer/code/euphoniaaireviewer
 
-```bash
-cd Euphonia-AI-Reviewer/mobile_app
-```
-
-3. Install dependencies and create android/ios directories:
-
-```bash
+# Install Flutter dependencies
 flutter pub get
-
-flutter create .
 ```
 
-To avoid having to replace the default package name com.example.yourappname, you could instead do
+### 2. Firebase Configuration
 
 ```bash
-cd ..
-
-mv mobile_app yourappname
-
-flutter create euphoniaaireviewer --org com.euphoniaaireviewer
-```
-
-4. Configure app icon using [flutter_launcher_icons](https://pub.dev/packages/flutter_launcher_icons):
-
-```bash
-flutter pub run flutter_launcher_icons
-```
-
-5. Configure backend services (Google Firebase):
-
-Make sure you already have a Firebase project set up. If not, follow these general steps, and refer to this [link](https://firebase.google.com/docs/flutter/setup) for more detailed information.
-
-1. Go to the [Firebase Console](https://console.firebase.google.com/). Sign in with your Google account.
-2. Click on **Add Project** and follow the steps to create a new Firebase project.
-3. Register your app with Firebase:
-    - For Android, download the `google-services.json` file.
-    - For iOS, download the `GoogleService-Info.plist` file.
-4. Add these files to your project:
-    - `google-services.json` should be placed in `android/app/`.
-    - `GoogleService-Info.plist` should be placed in `ios/Runner/`.
-
-Run the following command to configure Firebase services :
-
-```bash
+# Configure Firebase for your project
 flutterfire configure
+# Select your Firebase project (e.g., birdnet-reviewer)
 ```
 
-6. Prepare build
+### 3. CORS Configuration (Required for Audio Streaming)
 
-In Android:
+The app requires CORS configuration on Firebase Storage to stream audio files in web browsers.
 
-Modify the android app name in `android/app/src/main/AndroidManifest.xml`:
+#### Install Google Cloud SDK
+1. Install from: https://cloud.google.com/sdk/docs/install
+2. Authenticate: `gcloud auth login`
+3. Set your project: `gcloud config set project YOUR_PROJECT_ID`
 
-```xml
-<application
-    android:label="Euphonia AI Reviewer"
-    ... REST OF THE FILE ...
+#### Apply CORS Settings
+```bash
+# Make the script executable
+chmod +x setup_cors.sh
+
+# Run the CORS configuration script
+./setup_cors.sh
 ```
 
-# Notes on cybersecurity and privacy:
-- We are not responsible for any data breaches or other security incidents that may occur as a result of using this software.
-- Do not publish or share the following sensitive files files: `google-services.json`, `GoogleService-Info.plist`, firebase_options.dart, or others that may contain sensitive information.
+**Alternative manual method:**
+```bash
+gsutil cors set cors.json gs://YOUR_PROJECT_ID.appspot.com
+```
+
+### 4. Development Mode
+
+#### Option A: Normal Mode (after CORS setup)
+```bash
+flutter run -d chrome --web-renderer html
+```
+
+#### Option B: Development Mode (bypasses CORS - for testing only)
+```bash
+flutter run -d chrome --web-browser-flag "--disable-web-security"
+```
+
+## 📁 Project Structure
+
+```
+lib/
+├── main.dart                    # App entry point
+├── web_audio_service.dart       # PWA audio streaming service
+├── web_audio_processing.dart    # Audio processing & mock spectrograms
+├── spectrogram_display.dart     # Spectrogram visualization widget
+├── spectrogram_widget.dart      # Interactive spectrogram component
+├── play_screen.dart             # Manual species input screen
+├── example_card.dart            # Audio clip card component
+└── ...
+cors.json                        # Firebase Storage CORS configuration
+setup_cors.sh                   # CORS setup script
+CORS_SETUP.md                   # Detailed CORS documentation
+```
+
+## 🔧 Key Differences from Mobile Version
+
+### Removed Dependencies
+- ❌ `wav` - Not compatible with web
+- ❌ `path_provider` - File system access not needed for PWA
+- ❌ `qr_code_scanner` - Not reliable on web, replaced with manual input
+- ❌ `dart:io` - Not available in web context
+
+### Added PWA Features
+- ✅ **Web Audio Service** - Streams audio directly from Firebase Storage URLs
+- ✅ **Mock Spectrograms** - Realistic bird call visualizations for PWA
+- ✅ **Manual Input** - Text input and clickable species list instead of QR scanner
+- ✅ **CORS Support** - Proper configuration for cross-origin audio streaming
+
+## 🐛 Troubleshooting
+
+### Audio Not Playing
+1. **Check CORS configuration**: Run `gsutil cors get gs://YOUR_PROJECT_ID.appspot.com`
+2. **Browser compatibility**: WAV files may not work in all browsers - consider converting to MP3
+3. **Development mode**: Use `--disable-web-security` flag for testing
+
+### Spectrogram Not Loading
+1. **Check console logs**: Look for detailed debug output with 🔍 prefix
+2. **Firebase permissions**: Ensure your Firebase Storage rules allow read access
+3. **Network issues**: Check if Firebase Storage URLs are accessible
+
+### CORS Errors
+```bash
+# Verify CORS settings
+gsutil cors get gs://YOUR_PROJECT_ID.appspot.com
+
+# Re-apply if needed
+./setup_cors.sh
+```
+
+## 🚀 Production Deployment
+
+### Build for Production
+```bash
+flutter build web --web-renderer html
+```
+
+### Deploy to Firebase Hosting
+```bash
+firebase init hosting
+firebase deploy
+```
+
+### Important Notes for Production
+- Audio files should be in MP3 or AAC format for better browser compatibility
+- CORS must be properly configured (no `--disable-web-security` in production)
+- Consider CDN for audio files if performance is critical
+
+## 📚 Documentation
+
+- [CORS Setup Guide](CORS_SETUP.md) - Detailed CORS configuration instructions
+- [Flutter Web Documentation](https://docs.flutter.dev/platform-integration/web)
+- [Firebase Storage CORS](https://firebase.google.com/docs/storage/web/download-files#cors_configuration)
+
+## 🤝 Contributing
+
+When contributing to the PWA version:
+
+1. **Test with CORS**: Always test with proper CORS configuration, not just `--disable-web-security`
+2. **Web Compatibility**: Ensure all dependencies support web platform
+3. **Audio Formats**: Use web-compatible audio formats (MP3, AAC, OGG)
+4. **Debug Prints**: Include 🔍 prefix for debug output to help troubleshooting
