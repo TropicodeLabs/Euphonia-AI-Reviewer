@@ -15,15 +15,19 @@ Flutter Progressive Web App (PWA) for Euphonia AI Reviewer - migrated from mobil
 
 ### Prerequisites
 
+For normal development:
 - [Flutter SDK](https://docs.flutter.dev/get-started/install) (latest stable version)
+- [Firebase and FlutterFire](https://firebase.google.com/docs/flutter/setup?platform=web) (for Flutter-Firebase integration)
+
+Optional, to configure CORS:
 - [Google Cloud SDK](https://cloud.google.com/sdk/docs/install) (for CORS configuration)
-- Firebase project with Storage enabled
 
 ### 1. Clone and Setup
 
 ```bash
-# Clone the repository
+# Clone the repository, make sure you pull the branch that you want to work on
 git clone https://github.com/TropicodeLabs/Euphonia-AI-Reviewer.git
+git checkout macos-to-web
 
 # Navigate to the app directory
 cd Euphonia-AI-Reviewer/code/euphoniaaireviewer
@@ -40,7 +44,9 @@ flutterfire configure
 # Select your Firebase project (e.g., birdnet-reviewer)
 ```
 
-### 3. CORS Configuration (Required for Audio Streaming)
+### 3. CORS Configuration (Required for Audio Streaming) 
+
+This needs to be done only once.
 
 The app requires CORS configuration on Firebase Storage to stream audio files in web browsers.
 
