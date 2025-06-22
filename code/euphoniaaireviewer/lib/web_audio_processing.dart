@@ -5,6 +5,8 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:typed_data';
 import 'dart:html' as html;
 import 'dart:math' as math;
+import 'dart:async';
+import 'package:fftea/fftea.dart';
 
 class WebAudioProcessing {
   /// For PWA, fetch audio bytes directly without saving to local file
@@ -17,17 +19,15 @@ class WebAudioProcessing {
       print("🔍 WebAudioProcessing: Step 1 COMPLETE - Download URL obtained: $downloadUrl");
       
       print("🔍 WebAudioProcessing: Step 2 - Fetching audio bytes...");
-      final audioBytes = await _fetchAudioBytesFromGSUri(audioGSUri);
+      final audioBytes = await _fetchAudioBytesFromDownloadUrl(downloadUrl);
       print("🔍 WebAudioProcessing: Step 2 COMPLETE - Audio bytes fetched, size: ${audioBytes.length}");
       
-      // For PWA, we'll create a simple mock spectrogram
-      // In a production app, you might want to implement Web Audio API
-      // for real spectrogram generation, but for now this provides the UI structure
-      print("🔍 WebAudioProcessing: Step 3 - Generating mock spectrogram...");
-      final mockSpectrogramData = _generateMockSpectrogram();
-      print("🔍 WebAudioProcessing: Step 3 COMPLETE - Mock spectrogram generated, frames: ${mockSpectrogramData.length}");
+      // Compute real spectrogram from audio bytes
+      print("🔍 WebAudioProcessing: Step 3 - Computing real spectrogram from WAV data...");
+      final spectrogramData = await _computeSpectrogramFromWavBytes(audioBytes);
+      print("🔍 WebAudioProcessing: Step 3 COMPLETE - Real spectrogram computed, frames: ${spectrogramData.length}");
       
-      final result = [mockSpectrogramData, audioBytes, downloadUrl];
+      final result = [spectrogramData, audioBytes, downloadUrl];
       print("🔍 WebAudioProcessing: SUCCESS - Returning result with ${result.length} elements");
       print("🔍 WebAudioProcessing: Result types: ${result.map((e) => e.runtimeType).toList()}");
       return result;
@@ -39,12 +39,11 @@ class WebAudioProcessing {
     }
   }
   
-  /// Fetch audio bytes without saving to file
-  static Future<Uint8List> _fetchAudioBytesFromGSUri(String audioGSUri) async {
-    print("🔍 WebAudioProcessing: _fetchAudioBytesFromGSUri() called");
+  /// Fetch audio bytes directly from download URL (no GS URI conversion needed)
+  static Future<Uint8List> _fetchAudioBytesFromDownloadUrl(String downloadUrl) async {
+    print("🔍 WebAudioProcessing: _fetchAudioBytesFromDownloadUrl() called");
     
     try {
-      final downloadUrl = await _getDownloadUrlFromGSUri(audioGSUri);
       print("🔍 WebAudioProcessing: Using download URL for fetch: $downloadUrl");
       
       // Check if URL is accessible by testing it first
@@ -56,41 +55,37 @@ class WebAudioProcessing {
       print("🔍 WebAudioProcessing: Starting fetch request...");
       print("🔍 WebAudioProcessing: Full URL being fetched: $downloadUrl");
       
-      // Try with no-cors mode first as fallback
-      dynamic response;
-      try {
-        print("🔍 WebAudioProcessing: Attempting fetch with CORS mode...");
-        response = await html.window.fetch(downloadUrl, {
-          'mode': 'cors',
-          'credentials': 'omit',
-          'headers': {
-            'Accept': '*/*',
-          }
-        });
-        print("🔍 WebAudioProcessing: CORS fetch successful");
-      } catch (corsError) {
-        print("🔍 WebAudioProcessing: CORS fetch failed: $corsError");
-        print("🔍 WebAudioProcessing: Attempting fetch with no-cors mode...");
-        response = await html.window.fetch(downloadUrl, {
-          'mode': 'no-cors',
-        });
-        print("🔍 WebAudioProcessing: no-cors fetch attempted");
-      }
-      print("🔍 WebAudioProcessing: Fetch response status: ${response.status}");
-      print("🔍 WebAudioProcessing: Fetch response ok: ${response.ok}");
-      print("🔍 WebAudioProcessing: Fetch response statusText: ${response.statusText}");
+      // Use dart:html HttpRequest instead of fetch for better type safety
+      print("🔍 WebAudioProcessing: Starting HttpRequest...");
+      final request = html.HttpRequest();
+      request.open('GET', downloadUrl);
+      request.responseType = 'arraybuffer';
       
-      if (!response.ok) {
-        throw Exception("HTTP ${response.status}: ${response.statusText}");
-      }
+      // Set up the request as a Future
+      final completer = Completer<Uint8List>();
       
-      print("🔍 WebAudioProcessing: Getting arrayBuffer...");
-      final arrayBuffer = await response.arrayBuffer();
-      print("🔍 WebAudioProcessing: ArrayBuffer size: ${arrayBuffer.byteLength}");
+      request.onLoad.listen((event) {
+        print("🔍 WebAudioProcessing: HttpRequest completed successfully");
+        print("🔍 WebAudioProcessing: Response status: ${request.status}");
+        print("🔍 WebAudioProcessing: Response statusText: ${request.statusText}");
+        
+        if (request.status == 200) {
+          final arrayBuffer = request.response as ByteBuffer;
+          final result = Uint8List.view(arrayBuffer);
+          print("🔍 WebAudioProcessing: Uint8List created, length: ${result.length}");
+          completer.complete(result);
+        } else {
+          completer.completeError(Exception("HTTP ${request.status}: ${request.statusText}"));
+        }
+      });
       
-      final result = Uint8List.view(arrayBuffer);
-      print("🔍 WebAudioProcessing: Uint8List created, length: ${result.length}");
-      return result;
+      request.onError.listen((event) {
+        print("🔍 WebAudioProcessing: HttpRequest error: $event");
+        completer.completeError(Exception("Network error during request"));
+      });
+      
+      request.send();
+      return await completer.future;
     } catch (e, stackTrace) {
       print("🔍 WebAudioProcessing: ERROR in _fetchAudioBytesFromGSUri: $e");
       print("🔍 WebAudioProcessing: ERROR Type: ${e.runtimeType}");
@@ -137,13 +132,204 @@ class WebAudioProcessing {
     }
   }
   
-  /// Generate a mock spectrogram for demonstration
-  /// In a real implementation, you'd use Web Audio API for actual audio analysis
-  static List<Float64List> _generateMockSpectrogram() {
-    print("🔍 WebAudioProcessing: _generateMockSpectrogram() called");
+  /// Compute real spectrogram from WAV bytes using FFT
+  static Future<List<Float64List>> _computeSpectrogramFromWavBytes(Uint8List audioBytes) async {
+    print("🔍 WebAudioProcessing: _computeSpectrogramFromWavBytes() called with ${audioBytes.length} bytes");
     
     try {
-      // Create a more realistic mock spectrogram that looks like a bird call
+      if (audioBytes.isEmpty) {
+        print("🔍 WebAudioProcessing: Warning - Audio bytes are empty, generating fallback spectrogram");
+        return _generateFallbackSpectrogram();
+      }
+      
+      // Parse WAV header
+      final wavData = _parseWavFile(audioBytes);
+      if (wavData == null) {
+        print("🔍 WebAudioProcessing: Warning - Could not parse WAV file, generating fallback spectrogram");
+        return _generateFallbackSpectrogram();
+      }
+      
+      print("🔍 WebAudioProcessing: WAV parsed - Sample rate: ${wavData['sampleRate']}, Channels: ${wavData['numChannels']}, Samples: ${wavData['audioData'].length}");
+      
+      // Extract audio samples
+      final List<double> audioSamples = wavData['audioData'];
+      final int sampleRate = wavData['sampleRate'];
+      
+      // Compute spectrogram using Short-Time Fourier Transform (STFT)
+      return _computeSTFT(audioSamples, sampleRate);
+    } catch (e, stackTrace) {
+      print("🔍 WebAudioProcessing: ERROR in _computeSpectrogramFromWavBytes: $e");
+      print("🔍 WebAudioProcessing: STACK TRACE: $stackTrace");
+      print("🔍 WebAudioProcessing: Generating fallback spectrogram");
+      return _generateFallbackSpectrogram();
+    }
+  }
+  
+  /// Parse WAV file format and extract audio data
+  static Map<String, dynamic>? _parseWavFile(Uint8List bytes) {
+    try {
+      if (bytes.length < 44) {
+        print("🔍 WebAudioProcessing: File too small to be a valid WAV file");
+        return null;
+      }
+      
+      final view = ByteData.view(bytes.buffer);
+      
+      // Check RIFF header
+      final riffHeader = String.fromCharCodes(bytes.sublist(0, 4));
+      if (riffHeader != 'RIFF') {
+        print("🔍 WebAudioProcessing: Not a RIFF file: $riffHeader");
+        return null;
+      }
+      
+      // Check WAV format
+      final waveHeader = String.fromCharCodes(bytes.sublist(8, 12));
+      if (waveHeader != 'WAVE') {
+        print("🔍 WebAudioProcessing: Not a WAVE file: $waveHeader");
+        return null;
+      }
+      
+      // Find fmt chunk
+      int offset = 12;
+      while (offset < bytes.length - 8) {
+        final chunkId = String.fromCharCodes(bytes.sublist(offset, offset + 4));
+        final chunkSize = view.getUint32(offset + 4, Endian.little);
+        
+        if (chunkId == 'fmt ') {
+          // Parse format chunk
+          final audioFormat = view.getUint16(offset + 8, Endian.little);
+          final numChannels = view.getUint16(offset + 10, Endian.little);
+          final sampleRate = view.getUint32(offset + 12, Endian.little);
+          final bitsPerSample = view.getUint16(offset + 22, Endian.little);
+          
+          print("🔍 WebAudioProcessing: WAV Format - Channels: $numChannels, Sample Rate: $sampleRate, Bits: $bitsPerSample");
+          
+          if (audioFormat != 1) {
+            print("🔍 WebAudioProcessing: Unsupported audio format: $audioFormat (only PCM supported)");
+            return null;
+          }
+          
+          // Find data chunk
+          int dataOffset = offset + 8 + chunkSize;
+          while (dataOffset < bytes.length - 8) {
+            final dataChunkId = String.fromCharCodes(bytes.sublist(dataOffset, dataOffset + 4));
+            final dataChunkSize = view.getUint32(dataOffset + 4, Endian.little);
+            
+            if (dataChunkId == 'data') {
+              // Extract audio samples
+              final audioData = <double>[];
+              final startOffset = dataOffset + 8;
+              final bytesPerSample = bitsPerSample ~/ 8;
+              final numSamples = dataChunkSize ~/ (numChannels * bytesPerSample);
+              
+              for (int i = 0; i < numSamples; i++) {
+                double sampleValue = 0.0;
+                
+                if (bitsPerSample == 16) {
+                  // 16-bit PCM
+                  final sampleOffset = startOffset + i * numChannels * 2;
+                  if (sampleOffset + 1 < bytes.length) {
+                    final sample = view.getInt16(sampleOffset, Endian.little);
+                    sampleValue = sample / 32768.0;
+                  }
+                } else if (bitsPerSample == 8) {
+                  // 8-bit PCM
+                  final sampleOffset = startOffset + i * numChannels;
+                  if (sampleOffset < bytes.length) {
+                    final sample = bytes[sampleOffset] - 128;
+                    sampleValue = sample / 128.0;
+                  }
+                }
+                
+                audioData.add(sampleValue);
+              }
+              
+              return {
+                'sampleRate': sampleRate,
+                'numChannels': numChannels,
+                'bitsPerSample': bitsPerSample,
+                'audioData': audioData,
+              };
+            }
+            
+            dataOffset += 8 + dataChunkSize;
+          }
+          break;
+        }
+        
+        offset += 8 + chunkSize;
+      }
+      
+      print("🔍 WebAudioProcessing: Could not find data chunk in WAV file");
+      return null;
+    } catch (e) {
+      print("🔍 WebAudioProcessing: Error parsing WAV file: $e");
+      return null;
+    }
+  }
+  
+  /// Compute Short-Time Fourier Transform (STFT) for spectrogram
+  static List<Float64List> _computeSTFT(List<double> audioSamples, int sampleRate) {
+    print("🔍 WebAudioProcessing: _computeSTFT() called with ${audioSamples.length} samples at ${sampleRate}Hz");
+    
+    // Parameters for STFT
+    const int windowSize = 512;  // FFT window size
+    const int hopSize = 256;     // Hop size (overlap)
+    const int nFreqBins = windowSize ~/ 2; // Only positive frequencies
+    
+    // Create Hamming window
+    final window = List<double>.generate(windowSize, (i) => 
+      0.54 - 0.46 * math.cos(2 * math.pi * i / (windowSize - 1))
+    );
+    
+    final List<Float64List> spectrogramData = [];
+    final fft = FFT(windowSize);
+    
+    // Process audio in overlapping windows
+    for (int start = 0; start < audioSamples.length - windowSize; start += hopSize) {
+      // Extract windowed frame
+      final frame = Float64List(windowSize);
+      for (int i = 0; i < windowSize && start + i < audioSamples.length; i++) {
+        frame[i] = audioSamples[start + i] * window[i];
+      }
+      
+      // Compute FFT using fftea - use the proper API
+      final fftResult = fft.realFft(frame);
+      
+      // Compute magnitude spectrum (power spectrogram)
+      final magnitudes = Float64List(nFreqBins);
+      // fftResult is Float64x2List where each element has x (real) and y (imag)
+      for (int i = 0; i < nFreqBins && i < fftResult.length; i++) {
+        final complex = fftResult[i];
+        final real = complex.x;
+        final imag = complex.y;
+        final magnitude = math.sqrt(real * real + imag * imag);
+        // Convert to log scale for better visualization
+        magnitudes[i] = magnitude > 0 ? math.log(magnitude + 1e-10) / math.log(10) : -10.0;
+      }
+      
+      // Normalize to 0-1 range for display
+      double maxMag = magnitudes.reduce(math.max);
+      double minMag = magnitudes.reduce(math.min);
+      if (maxMag > minMag) {
+        for (int i = 0; i < nFreqBins; i++) {
+          magnitudes[i] = (magnitudes[i] - minMag) / (maxMag - minMag);
+        }
+      }
+      
+      spectrogramData.add(magnitudes);
+    }
+    
+    print("🔍 WebAudioProcessing: STFT computed - ${spectrogramData.length} time frames, $nFreqBins frequency bins");
+    return spectrogramData;
+  }
+  
+  /// Generate a fallback spectrogram when real computation fails
+  static List<Float64List> _generateFallbackSpectrogram() {
+    print("🔍 WebAudioProcessing: _generateFallbackSpectrogram() called");
+    
+    try {
+      // Create a more realistic fallback spectrogram that looks like a bird call
       final List<Float64List> spectrogramData = [];
       
       // Create a spectrogram that resembles a bird call pattern

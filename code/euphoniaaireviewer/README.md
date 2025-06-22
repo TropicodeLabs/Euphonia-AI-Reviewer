@@ -6,7 +6,8 @@ Flutter Progressive Web App (PWA) for Euphonia AI Reviewer - migrated from mobil
 
 - **Web-only PWA** - No mobile app installation required
 - **Audio streaming** from Firebase Storage
-- **Real-time spectrogram visualization** with mock bird call patterns
+- **Real-time spectrogram computation** from streamed audio using FFT analysis
+- **Interactive spectrograms** with customizable colormaps (jet, grayscale)
 - **Manual species input** and clickable species list
 - **Cross-platform compatibility** - works in any modern web browser
 
@@ -80,7 +81,7 @@ flutter run -d chrome --web-browser-flag "--disable-web-security"
 lib/
 ├── main.dart                    # App entry point
 ├── web_audio_service.dart       # PWA audio streaming service
-├── web_audio_processing.dart    # Audio processing & mock spectrograms
+├── web_audio_processing.dart    # Real-time spectrogram computation via FFT
 ├── spectrogram_display.dart     # Spectrogram visualization widget
 ├── spectrogram_widget.dart      # Interactive spectrogram component
 ├── play_screen.dart             # Manual species input screen
@@ -101,7 +102,7 @@ CORS_SETUP.md                   # Detailed CORS documentation
 
 ### Added PWA Features
 - ✅ **Web Audio Service** - Streams audio directly from Firebase Storage URLs
-- ✅ **Mock Spectrograms** - Realistic bird call visualizations for PWA
+- ✅ **Real-time Spectrograms** - FFT-based computation from streamed audio data
 - ✅ **Manual Input** - Text input and clickable species list instead of QR scanner
 - ✅ **CORS Support** - Proper configuration for cross-origin audio streaming
 
